@@ -1,0 +1,348 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Font weights are bundled into dist rather than pulled from Google Fonts or
+   a CDN: the binary has to run fully offline. This is the same reasoning that
+   makes reviewer.js dependency-free under R2 — the shell is held to it too,
+   so no network fonts here either. */
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+/* Tailwind v4 is CSS-first configuration; the `dark:` variant follows
+   `prefers-color-scheme` by default (no @custom-variant override needed),
+   which satisfies the "dark mode support (follows system)" requirement
+   without needing a runtime like next-themes. */
+
+/* ---------------------------------------------------------------------
+   Design concept "Annotation Desk": the document is paper, comments are
+   marginalia, and the toolchain is a terminal. The brand identity anchors
+   on the product's most distinctive object — the highlighter anchor
+   highlight (marker).
+   Two hard rules:
+   1. Every component sources its color only from the token set below,
+      never a literal color value.
+   2. Every token must be defined on bare :root (the dark override blocks
+      below only override existing tokens, never introduce new ones).
+   ------------------------------------------------------------------ */
+
+@theme {
+  --font-sans: 'IBM Plex Sans', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+:root {
+  /* Desktop / paper surface */
+  --desk: oklch(96.1% 0.004 148); /* #F6F7F5, a cool porcelain gray with a slight green-gray bias, not default white */
+  --sheet: oklch(98.9% 0.004 90); /* #FCFCFA, document paper surface, cards, popovers */
+
+  /* Three-tier ink scale */
+  --ink: oklch(29.3% 0.014 245); /* #20262B, blue-black ink, body text/headings */
+  --ink-2: oklch(50.8% 0.012 245); /* #5A6570, secondary: mono metadata, descriptive text */
+  --ink-3: oklch(65.3% 0.009 245); /* #8A939B, muted: placeholders, orphan */
+
+  --line: oklch(90.2% 0.006 135); /* #DFE3DE, hairline */
+
+  /* Brand color: highlighter amber. marker itself is only used for the
+     highlight fill/accent line; marker-ink is the matching dark-amber
+     text color, used to keep text readable on top of the marker fill. */
+  --marker: oklch(82.3% 0.15 85); /* #F2C230 */
+  --marker-ink: oklch(46.5% 0.1 70); /* #8A6410, open label text / highlighter-underline text */
+
+  /* Semantic colors: addressed indigo, resolved moss green; orphan has no
+     dedicated color, it uses --ink-3 + a dashed border */
+  --addressed: oklch(45.9% 0.13 265); /* #3E63C4 */
+  --resolved: oklch(48.5% 0.06 145); /* #55795F */
+
+  /* Seal-ink red: used for error states, in the same family as the paper theme (not shadcn's default bright red) */
+  --danger: oklch(45% 0.16 25); /* #B23A2E */
+  --danger-ink: oklch(98% 0.005 90);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --desk: oklch(21% 0.006 245); /* #15181B */
+    --sheet: oklch(25.5% 0.006 245); /* #1C2024 */
+    --ink: oklch(91.5% 0.006 135); /* #E6E8E4 */
+    --ink-2: oklch(68% 0.01 245); /* one step brighter to keep contrast */
+    --ink-3: oklch(52% 0.012 245);
+    --line: oklch(33% 0.008 245); /* #2B3034 */
+
+    --marker: oklch(85% 0.15 85); /* needs to be one step brighter still against a dark desktop to pop */
+    --marker-ink: oklch(46.5% 0.1 70); /* marker text stays dark — the background is still a light chip */
+
+    --addressed: oklch(68% 0.12 265);
+    --resolved: oklch(68% 0.08 145);
+
+    --danger: oklch(68% 0.16 25);
+    --danger-ink: oklch(18% 0.01 25);
+  }
+}
+
+:root[data-theme='dark'] {
+  --desk: oklch(21% 0.006 245);
+  --sheet: oklch(25.5% 0.006 245);
+  --ink: oklch(91.5% 0.006 135);
+  --ink-2: oklch(68% 0.01 245);
+  --ink-3: oklch(52% 0.012 245);
+  --line: oklch(33% 0.008 245);
+
+  --marker: oklch(85% 0.15 85);
+  --marker-ink: oklch(46.5% 0.1 70);
+
+  --addressed: oklch(68% 0.12 265);
+  --resolved: oklch(68% 0.08 145);
+
+  --danger: oklch(68% 0.16 25);
+  --danger-ink: oklch(18% 0.01 25);
+}
+
+@theme inline {
+  --color-desk: var(--desk);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-marker: var(--marker);
+  --color-marker-ink: var(--marker-ink);
+  --color-addressed: var(--addressed);
+  --color-resolved: var(--resolved);
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+
+  /* Derived tokens: no literal colors here, computed from the primaries above so light/dark switches automatically. */
+  --color-muted: color-mix(in oklch, var(--ink) 5%, var(--sheet));
+  --color-hover: color-mix(in oklch, var(--ink) 4%, var(--sheet));
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+  body {
+    background-color: var(--color-desk);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  ::selection {
+    background-color: color-mix(in oklch, var(--color-marker) 55%, transparent);
+    color: var(--color-ink);
+  }
+}
+
+/* Typography for rendered markdown content (DocDetail.html, R1: the Go side is the single source of truth). */
+.art-prose {
+  max-width: 42em; /* approx 65 characters per line for Chinese text */
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.art-prose > * + * {
+  margin-top: 0.9em;
+}
+.art-prose h1,
+.art-prose h2,
+.art-prose h3,
+.art-prose h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.6em;
+}
+/* Tailwind preflight resets heading font-size to inherit; without
+   restoring a size scale here, h1-h4 would render the same size as body
+   text, indistinguishable in hierarchy from the DocToolbar title outside. */
+.art-prose h1 {
+  font-size: 1.5em;
+}
+.art-prose h2 {
+  font-size: 1.25em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--color-line);
+}
+.art-prose h3 {
+  font-size: 1.125em;
+}
+.art-prose h4 {
+  font-size: 1em;
+}
+
+.art-prose ul,
+.art-prose ol {
+  padding-left: 1.5em;
+}
+.art-prose ul {
+  list-style-type: disc;
+}
+.art-prose ol {
+  list-style-type: decimal;
+  font-variant-numeric: tabular-nums;
+}
+.art-prose ul ul,
+.art-prose ol ul {
+  list-style-type: circle;
+}
+.art-prose ul ul ul,
+.art-prose ol ul ul,
+.art-prose ul ol ul,
+.art-prose ol ol ul {
+  list-style-type: square;
+}
+.art-prose li + li {
+  margin-top: 0.3em;
+}
+.art-prose li > ul,
+.art-prose li > ol {
+  margin-top: 0.3em;
+}
+/* GFM task list: goldmark renders the checkbox as a disabled <input>;
+   the enclosing <li> shouldn't also draw a list marker, or there'll be
+   an extra dot next to the checkbox. */
+.art-prose li:has(> input[type='checkbox']:first-child) {
+  list-style: none;
+  margin-left: -1.5em;
+}
+.art-prose input[type='checkbox'] {
+  margin-right: 0.4em;
+}
+.art-prose pre {
+  overflow-x: auto;
+  border-radius: 4px;
+  border: 1px solid var(--color-line);
+  background-color: var(--color-muted);
+  padding: 0.9em 1.1em;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+.art-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  font-variant-numeric: tabular-nums;
+}
+.art-prose blockquote {
+  border-left: 3px solid var(--color-marker);
+  padding-left: 1em;
+  color: var(--color-ink-2);
+}
+.art-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375em;
+}
+.art-prose th,
+.art-prose td {
+  border: 1px solid var(--color-line);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+.art-prose th {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.8125em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-2);
+}
+.art-prose img {
+  max-width: 100%;
+}
+
+/* "Paper": the container where document content floats above the desk color (DocView main area). */
+.art-paper {
+  background-color: var(--color-sheet);
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--color-ink) 6%, transparent);
+}
+:root[data-theme='dark'] .art-paper {
+  box-shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .art-paper {
+    box-shadow: none;
+  }
+}
+
+/* Shared styling for mono metadata: the common typographic language for id / sha / offset / status labels. */
+.art-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selection highlight echo (HighlightLayer, §7.4): an exact match is
+   marked with a background fill; an approx/orphan match (when the exact
+   DOM position can't be found) gets a dashed outline instead.
+   Both background and text colors are hardcoded here (not tied to the
+   --color-marker theme variable) so it stays readable like a real
+   highlighter pen against both light and dark body text — in dark mode,
+   layering the theme color at low opacity straight onto dark body text
+   still leaves the text light-colored, and contrast drops to unreadable
+   (confirmed by testing dark-mode screenshots). */
+.art-anchor-exact {
+  background-color: oklch(0.8 0.16 75 / 70%);
+  color: oklch(0.22 0.02 60);
+  border-radius: 0.2em;
+  padding: 0.05em 0.15em;
+  scroll-margin-block: 6rem;
+}
+.art-anchor-exact.art-anchor-focused {
+  background-color: oklch(0.75 0.19 55 / 90%);
+}
+.art-anchor-approx {
+  outline: 1.5px dashed var(--color-ink-3);
+  outline-offset: 3px;
+  border-radius: 0.25em;
+  scroll-margin-block: 6rem;
+}
+
+/* ---------------------------------------------------------------------
+   Micro-animations: all wrapped in prefers-reduced-motion, so users with
+   reduced motion enabled never see them at all.
+   ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes art-thread-flash {
+    0% {
+      background-color: color-mix(in oklch, var(--color-marker) 45%, transparent);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  .art-thread-flash {
+    animation: art-thread-flash 600ms ease-out;
+  }
+
+  @keyframes art-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .art-pop-in {
+    animation: art-pop-in 120ms ease-out;
+  }
+}
+
+/* Visible keyboard focus state: written as a bare rule outside any
+   @layer, so it can't be overridden by a Tailwind utility class (e.g. an
+   accidental outline-none slipped into some component). */
+:focus-visible {
+  outline: 2px solid var(--color-marker);
+  outline-offset: 2px;
+}
+
+/* Hides the scrollbar for ThreadFilter's horizontal-scroll fallback (which never wraps), while keeping scrolling functional. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

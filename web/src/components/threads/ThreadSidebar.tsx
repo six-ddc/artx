@@ -1,0 +1,85 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Thread } from '@/lib/types';
+import { ThreadFilter, type ThreadFilterValue } from './ThreadFilter';
+import { ThreadCard } from './ThreadCard';
+
+interface ThreadSidebarProps {
+  docId: string;
+  threads: Thread[];
+  focusedThreadId?: string;
+  onFocusThread: (threadId: string) => void;
+}
+
+const FLASH_MS = 650;
+
+export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread }: ThreadSidebarProps) {
+  const [filter, setFilter] = useState<ThreadFilterValue>('open');
+  const [flashIds, setFlashIds] = useState<ReadonlySet<string>>(new Set());
+  const knownIds = useRef<Set<string> | null>(null);
+
+  // A soft amber flash, once, for threads that just arrived via SSE: diff
+  // against the last-rendered set of thread ids. The first mount only
+  // establishes the baseline and never flashes (otherwise every thread would
+  // flash together the moment the page opens).
+  useEffect(() => {
+    const currentIds = new Set(threads.map((t) => t.thread));
+    if (knownIds.current) {
+      const arrived = [...currentIds].filter((id) => !knownIds.current!.has(id));
+      if (arrived.length > 0) {
+        setFlashIds((prev) => new Set([...prev, ...arrived]));
+        const timer = window.setTimeout(() => {
+          setFlashIds((prev) => {
+            const next = new Set(prev);
+            for (const id of arrived) next.delete(id);
+            return next;
+          });
+        }, FLASH_MS);
+        knownIds.current = currentIds;
+        return () => window.clearTimeout(timer);
+      }
+    }
+    knownIds.current = currentIds;
+  }, [threads]);
+
+  const counts = useMemo(() => {
+    const c: Record<ThreadFilterValue, number> = { open: 0, addressed: 0, resolved: 0, all: threads.length };
+    for (const t of threads) c[t.status]++;
+    return c;
+  }, [threads]);
+
+  const filtered = useMemo(
+    () => (filter === 'all' ? threads : threads.filter((t) => t.status === filter)),
+    [threads, filter],
+  );
+
+  return (
+    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-16 lg:h-[calc(100dvh-5rem)] lg:w-80 lg:shrink-0">
+      {/* Two-row layout: title and filter each get their own row instead of
+          fighting for one and wrapping — the filter's up to 4 count segments
+          sharing a row with the title would wrap almost every time in a
+          narrow sidebar. */}
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-ink">Threads</h2>
+        <ThreadFilter value={filter} counts={counts} onChange={setFilter} />
+      </div>
+      <div className="flex-1 overflow-y-auto border-t border-line">
+        {filtered.length === 0 ? (
+          <p className="px-1 py-3 text-xs text-ink-3">
+            {filter === 'all' ? 'No threads' : `No ${filter} threads`}
+          </p>
+        ) : (
+          filtered.map((thread) => (
+            <ThreadCard
+              key={thread.thread}
+              docId={docId}
+              thread={thread}
+              focused={thread.thread === focusedThreadId}
+              flash={flashIds.has(thread.thread)}
+              onFocus={onFocusThread}
+            />
+          ))
+        )}
+      </div>
+    </aside>
+  );
+}
