@@ -1,0 +1,13 @@
+bin/
+web/dist/
+web/node_modules/
+node_modules/
+
+# Keep only the placeholder index.html in the embed directory; build output stays out of git.
+internal/server/dist/*
+!internal/server/dist/index.html
+
+.DS_Store
+
+# Stray binary at the repo root (the real one belongs in bin/).
+/art
