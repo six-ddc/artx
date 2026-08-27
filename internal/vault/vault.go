@@ -49,6 +49,10 @@ var ErrExists = errors.New("vault: slug already exists")
 // ErrOutsideVault indicates a path escaped the vault directory.
 var ErrOutsideVault = errors.New("vault: path escapes vault root")
 
+// ErrInsideRepo indicates init refused to create a vault inside an existing
+// git repository — a vault must be its own standalone repo.
+var ErrInsideRepo = errors.New("vault: directory is inside an existing git repository")
+
 // Vault is a located vault.
 type Vault struct {
 	Root  string
@@ -100,14 +104,32 @@ func Discover(explicit string) (*Vault, error) {
 	return Open(root, name)
 }
 
+// InitOptions configures Init.
+type InitOptions struct {
+	Name  string // registry name; defaults to the directory's basename
+	Force bool   // skip the refusal to create a vault inside an existing git repository
+}
+
 // Init sets up a new vault at dir: directory skeleton, .artx/config.yaml,
 // .gitattributes, the AGENTS.md template, git init, and a global registry
-// entry. Idempotent if dir is already a vault.
-func Init(ctx context.Context, dir, name string) (*Vault, error) {
+// entry. Idempotent if dir is already a vault. Unless opts.Force is set, it
+// refuses to create a new vault inside an existing git worktree — a vault
+// must be its own standalone repo, or artx's machine commits would interleave
+// with (and sweep up staged changes of) an unrelated project's history.
+func Init(ctx context.Context, dir string, opts InitOptions) (*Vault, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
+
+	// Refuse before creating anything, so a refusal leaves no trace. An
+	// existing vault skips the check: its own repo would trip it.
+	if _, statErr := os.Stat(filepath.Join(abs, config.VaultConfigPath)); os.IsNotExist(statErr) && !opts.Force {
+		if top := gitx.Toplevel(ctx, nearestExistingDir(abs)); top != "" {
+			return nil, fmt.Errorf("vault: %s is inside the git repository at %s; a vault must be its own standalone repo (use --force to override): %w", abs, top, ErrInsideRepo)
+		}
+	}
+
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return nil, err
 	}
@@ -118,6 +140,7 @@ func Init(ctx context.Context, dir, name string) (*Vault, error) {
 		return nil, err
 	}
 
+	name := opts.Name
 	if name == "" {
 		name = filepath.Base(abs)
 	}
@@ -168,6 +191,22 @@ func Init(ctx context.Context, dir, name string) (*Vault, error) {
 	}
 
 	return Open(abs, name)
+}
+
+// nearestExistingDir walks up from path to the closest directory that exists
+// on disk — Init may be pointed at a directory it has not created yet, but a
+// worktree containing any ancestor would contain the new directory too.
+func nearestExistingDir(path string) string {
+	for {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return path
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return path
+		}
+		path = parent
+	}
 }
 
 // Artifact is one deliverable inside the vault.

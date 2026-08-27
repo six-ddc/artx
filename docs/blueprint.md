@@ -204,14 +204,15 @@ func (s *Store) NeedsCompact(docID string, opts CompactOptions) (bool, error)
 ```go
 const ArtDir, AssetsDir, AgentsFile, IndexMD, IndexHTML
 const FrontmatterAIDKey = "aid"; const MetaAIDName = "aid"
-var ErrNotFound, ErrExists, ErrOutsideVault
+var ErrNotFound, ErrExists, ErrOutsideVault, ErrInsideRepo
 
 type Vault struct{ Root, Name string; Cfg *config.Vault; Store *eventlog.Store; Git *gitx.Repo }
 type Artifact struct{ ID, Slug, Type, Dir, Path, RelPath, Title string }
 
 func Open(root, name string) (*Vault, error)
 func Discover(explicit string) (*Vault, error)
-func Init(ctx context.Context, dir, name string) (*Vault, error)
+type InitOptions struct{ Name string; Force bool }
+func Init(ctx context.Context, dir string, opts InitOptions) (*Vault, error)
 func AgentsTemplate() []byte
 
 func (v *Vault) Scan() ([]Artifact, error)
@@ -231,7 +232,7 @@ func (v *Vault) Author() string
 
 `config`: the `Global`/`Vault` structs + `LoadGlobal/SaveGlobal/GlobalFilePath/Register/LoadVault/SaveVault/Resolve/FindRoot`, and `(*Vault).Debounce()`.
 
-`gitx`: `Repo` + `Open/Available/Init/HeadSHA/FileRev/ShowFile/Commit/LogFile`, the three-valued `Author` enum, the `CommitOptions` and `Commit` records, `EnsureGitattributes`, `GitattributesLine`.
+`gitx`: `Repo` + `Open/Available/Init/HeadSHA/FileRev/ShowFile/Commit/LogFile`, the package-level `Toplevel`, the three-valued `Author` enum, the `CommitOptions` and `Commit` records, `EnsureGitattributes`, `GitattributesLine`.
 
 `idgen`: `DocID/ElementID/ThreadID/ReplyID/EventID/IsThreadID/IsReplyID/ThreadOfComment/Random`.
 

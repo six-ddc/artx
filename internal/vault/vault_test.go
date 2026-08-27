@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,17 @@ import (
 	"github.com/six-ddc/artx/internal/config"
 	"github.com/six-ddc/artx/internal/gitx"
 )
+
+// newGitRepo creates a plain (non-vault) git repository in a fresh temp dir,
+// skipping the test when the system has no git.
+func newGitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := gitx.Open(dir).Init(context.Background()); err != nil {
+		t.Skip("system git not available")
+	}
+	return dir
+}
 
 func isolateRegistry(t *testing.T) {
 	t.Helper()
@@ -24,7 +36,7 @@ func TestInitOpenIdempotent(t *testing.T) {
 	dir := t.TempDir()
 	ctx := context.Background()
 
-	v1, err := Init(ctx, dir, "work")
+	v1, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -44,7 +56,7 @@ func TestInitOpenIdempotent(t *testing.T) {
 	if err := os.WriteFile(agentsPath, []byte("custom content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Init(ctx, dir, "work"); err != nil {
+	if _, err := Init(ctx, dir, InitOptions{Name: "work"}); err != nil {
 		t.Fatalf("Init (2nd): %v", err)
 	}
 	b, err := os.ReadFile(agentsPath)
@@ -68,11 +80,53 @@ func TestOpenNonVaultFails(t *testing.T) {
 	}
 }
 
+func TestInitRefusesInsideRepo(t *testing.T) {
+	isolateRegistry(t)
+	repo := newGitRepo(t)
+	ctx := context.Background()
+
+	// A nested, not-yet-existing subdirectory of someone else's repo.
+	target := filepath.Join(repo, "sub", "vault")
+	if _, err := Init(ctx, target, InitOptions{}); !errors.Is(err, ErrInsideRepo) {
+		t.Fatalf("Init inside a repo: err = %v, want ErrInsideRepo", err)
+	}
+	// The refusal must leave no trace behind.
+	if _, err := os.Stat(filepath.Join(repo, "sub")); !os.IsNotExist(err) {
+		t.Errorf("refused Init left %s behind", filepath.Join(repo, "sub"))
+	}
+
+	// The repository root itself (the incident shape: a project repo with
+	// history) must be refused too.
+	if _, err := gitx.Open(repo).Commit(ctx, gitx.CommitOptions{Message: "seed", AllowEmpty: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Init(ctx, repo, InitOptions{}); !errors.Is(err, ErrInsideRepo) {
+		t.Fatalf("Init at a repo root: err = %v, want ErrInsideRepo", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, ArtDir)); !os.IsNotExist(err) {
+		t.Errorf("refused Init left %s behind", ArtDir)
+	}
+}
+
+func TestInitForceInsideRepo(t *testing.T) {
+	isolateRegistry(t)
+	repo := newGitRepo(t)
+	target := filepath.Join(repo, "vault")
+
+	v, err := Init(context.Background(), target, InitOptions{Force: true})
+	if err != nil {
+		t.Fatalf("Init with Force: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(v.Root, config.VaultConfigPath)); err != nil {
+		t.Errorf("config.yaml not created: %v", err)
+	}
+}
+
 func TestNewScanLookup(t *testing.T) {
 	isolateRegistry(t)
 	dir := t.TempDir()
 	ctx := context.Background()
-	v, err := Init(ctx, dir, "work")
+	v, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +185,7 @@ func TestDocsAndThreadsRoundTrip(t *testing.T) {
 	isolateRegistry(t)
 	dir := t.TempDir()
 	ctx := context.Background()
-	v, err := Init(ctx, dir, "work")
+	v, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +230,7 @@ func TestAllThreadsAndScanMarshalToEmptyArrayNotNull(t *testing.T) {
 	isolateRegistry(t)
 	dir := t.TempDir()
 	ctx := context.Background()
-	v, err := Init(ctx, dir, "work")
+	v, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +385,7 @@ func TestNewCommitsSkeleton(t *testing.T) {
 	dir := t.TempDir()
 	ctx := context.Background()
 
-	v, err := Init(ctx, dir, "work")
+	v, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -388,7 +442,7 @@ func TestInitCommitsSkeleton(t *testing.T) {
 	dir := t.TempDir()
 	ctx := context.Background()
 
-	v, err := Init(ctx, dir, "work")
+	v, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -429,7 +483,7 @@ func TestInitGitignoreCoversServeLock(t *testing.T) {
 	dir := t.TempDir()
 	ctx := context.Background()
 
-	v, err := Init(ctx, dir, "work")
+	v, err := Init(ctx, dir, InitOptions{Name: "work"})
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -448,7 +502,7 @@ func TestInitGitignoreCoversServeLock(t *testing.T) {
 	if err := os.WriteFile(gitignorePath, append(b, []byte("*.log\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Init(ctx, dir, "work"); err != nil {
+	if _, err := Init(ctx, dir, InitOptions{Name: "work"}); err != nil {
 		t.Fatalf("Init (2nd): %v", err)
 	}
 	b2, err := os.ReadFile(gitignorePath)

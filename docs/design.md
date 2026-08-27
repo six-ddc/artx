@@ -34,7 +34,7 @@ Precedents for Go + go:embed: Gitea, miniflux. All frontend assets are embedded 
 
 ## 3. Core concepts
 
-- **vault**: a git repository directory, the publishing destination for artifacts. The agent works in any cwd and finds the vault through a global registry.
+- **vault**: a git repository directory, the publishing destination for artifacts. The agent works in any cwd and finds the vault through a global registry. A vault must be its own standalone repo: `artx init` refuses to create one inside an existing git worktree (override with `--force`), so artx's machine commits never interleave with a project's history.
 - **artifact**: a directory inside the vault containing `index.md` or `index.html` plus optional assets. Its identity is an immutable **doc id** (6-character base36; md stores it in frontmatter as `aid:`, html as `<meta name="aid">`), and the path is merely an address.
 - **comment thread (thread)**: a discussion anchored to a position in a document, with the state machine `open → addressed → resolved` (reopenable).
 - **event log**: one YAML event stream file per document; every change to comments is an appended event, and the current state = fold(all events).
@@ -72,7 +72,7 @@ vaults:
 Every agent-facing command supports `--json`, with semantic exit codes (0 success / 1 error / 2 not found).
 
 ```
-artx init [dir]                     # create vault: directory skeleton + git init + .gitattributes/.gitignore + AGENTS.md template
+artx init [dir]                     # create vault: directory skeleton + git init + .gitattributes/.gitignore + AGENTS.md template; refuses inside an existing git repo (--force overrides)
 artx new <slug> --type md|html      # allocate an id, create the skeleton file, print {id, path, url}
 artx path <slug|id>                 # resolve the absolute path
 artx list [--json]                  # all artifacts + open comment counts

@@ -22,7 +22,7 @@ func newTestVault(t *testing.T) string {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("ARTX_VAULT", "")
 	dir := t.TempDir()
-	if _, err := vault.Init(context.Background(), dir, "test"); err != nil {
+	if _, err := vault.Init(context.Background(), dir, vault.InitOptions{Name: "test"}); err != nil {
 		t.Fatal(err)
 	}
 	return dir

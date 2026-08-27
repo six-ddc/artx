@@ -16,6 +16,7 @@ import (
 // when the directory is already a vault — it only fills in what's missing.
 func newInitCmd() *cobra.Command {
 	var name string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
 		Short: "Create a vault in a directory",
@@ -25,7 +26,7 @@ func newInitCmd() *cobra.Command {
 			if len(args) > 0 {
 				dir = args[0]
 			}
-			v, err := vault.Init(cmd.Context(), dir, name)
+			v, err := vault.Init(cmd.Context(), dir, vault.InitOptions{Name: name, Force: force})
 			if err != nil {
 				return err
 			}
@@ -35,5 +36,6 @@ func newInitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "vault name in the registry (defaults to the directory name)")
+	cmd.Flags().BoolVar(&force, "force", false, "allow creating the vault inside an existing git repository")
 	return cmd
 }

@@ -100,7 +100,7 @@ Every agent-facing command takes `--json`. Exit codes are meaningful: `0` succes
 
 | Command | What it does |
 |---|---|
-| `artx init [dir]` | Create a vault: directory skeleton, `git init`, `.gitattributes`, `.gitignore`, `AGENTS.md` |
+| `artx init [dir]` | Create a vault: directory skeleton, `git init`, `.gitattributes`, `.gitignore`, `AGENTS.md`. Refuses inside an existing git repo (`--force` overrides) |
 | `artx new <slug> --type md\|html` | Allocate a doc id, write the skeleton file, print `{id, path, url}` |
 | `artx path <slug\|id>` | Resolve an artifact's absolute path |
 | `artx list` | List artifacts with their open-comment counts |

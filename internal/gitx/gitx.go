@@ -52,6 +52,22 @@ func (r *Repo) Available() bool {
 	return strings.TrimSpace(out) == "true"
 }
 
+// Toplevel returns the root of the git worktree containing dir, or "" when
+// dir is not inside one (or git is unavailable) — errors degrade to "" per
+// the package's git-is-optional philosophy. A package function rather than a
+// Repo method because callers may probe ancestors of a directory that does
+// not exist yet.
+func Toplevel(ctx context.Context, dir string) string {
+	if !hasGit() {
+		return ""
+	}
+	out, err := Open(dir).run(ctx, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
+
 // committerEnv supplies a committer identity for every git invocation.
 //
 // art creates and commits to its own repository, and shouldn't require the
