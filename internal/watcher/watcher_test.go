@@ -350,9 +350,16 @@ func TestRunDebouncesAndProcesses(t *testing.T) {
 		ID: "a7f3k2", Slug: "demo", Type: api.DocTypeMD,
 		Dir: dir, Path: path, RelPath: filepath.Join("demo", vault.IndexMD),
 	}
+	// The debounce window is deliberately far wider than the 10ms spacing of
+	// the writes below. What matters is that all three land inside one window;
+	// a margin that looks generous on a developer machine is the bare minimum
+	// on a loaded CI runner under -race, where fsnotify delivery and goroutine
+	// scheduling both stretch. A 50ms window here failed in CI often enough to
+	// redden main.
+	const debounce = 200 * time.Millisecond
 	w, err := New(Options{
 		Vault:    &vault.Vault{Root: root},
-		Debounce: 50 * time.Millisecond,
+		Debounce: debounce,
 		Emit: func(Notice) {
 			mu.Lock()
 			calls++
@@ -387,8 +394,8 @@ func TestRunDebouncesAndProcesses(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("timed out waiting for Process to be triggered")
 	}
-	// Wait one more debounce window to confirm there's no extra second round.
-	time.Sleep(200 * time.Millisecond)
+	// Wait more than another full window to confirm no second round follows.
+	time.Sleep(debounce * 5 / 2)
 
 	mu.Lock()
 	defer mu.Unlock()
