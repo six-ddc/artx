@@ -12,7 +12,7 @@ The content in a vault is produced by an agent running on your machine with your
 
 **Filesystem.** The server reads and writes only within the vault directory. Paths from requests are validated against traversal (`../`) and symlink escape.
 
-The serve lockfile at `.artx/serve.lock` contains the `--token` value, so local CLI invocations need no configuration. It is written mode `0600`, and `artx`'s own auto-commits are scoped to the artifact directory and `.artx/comments/` and never include it. It is not, however, added to a vault `.gitignore` — if you run `git add -A` in a vault by hand while a token-mode serve is live, check that you are not committing the token.
+The serve lockfile at `.artx/serve.lock` contains the `--token` value, so local CLI invocations need no configuration. It is written mode `0600`, `artx init` adds it to the vault's `.gitignore`, and `artx`'s own auto-commits are scoped to the artifact directory and `.artx/comments/` and never include it.
 
 ## Supported versions
 

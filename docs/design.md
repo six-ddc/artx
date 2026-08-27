@@ -1,6 +1,6 @@
 # artx — Agent artifact repository and comment-loop CLI design
 
-> Version v0.4 · 2026-08-24 · The product name `artx` (as in artifact) is provisional; final naming TBD
+> Version v0.4 · 2026-08-24 · Product name: `artx` — as in artifact, with the `x` disambiguating it from the several existing tools already called `art`
 
 ## 1. Positioning
 
@@ -54,7 +54,8 @@ vault/
 │   └── index.md                 # frontmatter: aid: a7f3
 ├── pricing-demo/
 │   └── index.html               # <meta name="aid" content="b2c9">
-└── .gitattributes               # .artx/comments/*.yaml merge=union
+├── .gitattributes               # .artx/comments/*.yaml merge=union
+└── .gitignore                   # .artx/serve.lock (it carries the --token value)
 ```
 
 Global registry `~/.config/artx/config.yaml`:
@@ -71,7 +72,7 @@ vaults:
 Every agent-facing command supports `--json`, with semantic exit codes (0 success / 1 error / 2 not found).
 
 ```
-artx init [dir]                     # create vault: directory skeleton + git init + .gitattributes + AGENTS.md template
+artx init [dir]                     # create vault: directory skeleton + git init + .gitattributes/.gitignore + AGENTS.md template
 artx new <slug> --type md|html      # allocate an id, create the skeleton file, print {id, path, url}
 artx path <slug|id>                 # resolve the absolute path
 artx list [--json]                  # all artifacts + open comment counts
@@ -216,7 +217,7 @@ Defense in depth: event id = timestamp + random suffix (no id collisions under c
 
 **Two rendering red lines**: ① the single source of truth for md rendering is Go-side goldmark (React only consumes the HTML carrying data-sourcepos and attaches overlays); the frontend must never re-render md, or the sourcepos anchor system collapses; ② the reviewer script injected into the sandboxed iframe of an html artifact stays vanilla with zero dependencies — React lives only in the shell application and never enters the sandbox.
 
-**auto-commit**: once the watcher debounce settles, `git add -A && git commit -m "artx: update <slug>"`. Authorship distinguishes three classes — agent/human/art (writes through the comment API use `artx-web <reviewer>`).
+**auto-commit**: once the watcher debounce settles, the artifact's own directory and `.artx/comments/` are staged and committed as `artx: update <slug>`. The scope is deliberately narrower than `git add -A`: staging the whole tree while processing one document sweeps in whatever another document happens to be mid-edit, committing a state the watcher never processed. Authorship distinguishes three classes — agent/human/artx (writes through the comment API use `artx-web <reviewer>`).
 
 ## 9. Security
 
@@ -258,7 +259,7 @@ Acceptance criteria: agent publishes md → human comments in the browser → ag
 | The agent omits the url / never checks comments | A strong convention in AGENTS.md + `artx list` as a fallback; dispatch mode fixes it at the root |
 | JS-heavy html demos misbehave in a sandboxed iframe | M1 provides a `--raw` direct-open escape hatch (giving up the comment layer) |
 | Log bloat | Automated compact threshold; archive separation |
-| Name collision | `artx` is a working name; check the crates/brew/npm namespaces before release |
+| Name collision | Settled: the plain name `art` was taken on npm, crates.io and PyPI (where it also installs a competing `art` binary), so `artx` was chosen instead — free on Homebrew, npm, PyPI, crates.io and apt, with no same-named binary anywhere |
 
 ## 13. Open questions (decided during implementation)
 

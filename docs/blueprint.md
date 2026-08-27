@@ -22,7 +22,7 @@
 ## 1. Repository file tree
 
 ```
-art/
+artx/
 ├── go.mod  go.sum  Makefile  .gitignore
 ├── docs/
 │   ├── design.md                    requirements (read-only)
@@ -648,7 +648,7 @@ The frontend only **collects**; it does not compute offsets (§5.2). Steps:
 
 ### 7.5 The reviewer script's postMessage protocol
 
-Types are defined in `web/src/lib/protocol.ts` (frozen). Every message carries the `artx: 1` marker; messages missing that field are ignored without exception.
+Types are defined in `web/src/lib/protocol.ts` (frozen). Every message carries the `art: 1` marker; messages missing that field are ignored without exception. The marker key stays `art`, not `artx` — it is a frozen wire field, and renaming it would break every reviewer script already injected into a sandboxed frame.
 
 **iframe → shell**: `ready{href, aidCount}`, `hover{aid, rect, tag}`, `pick{aid, rect, tag, text, quote?}`, `size{height}`, `scroll{top}`, `edit{aid, html}` (M2)
 
@@ -770,7 +770,7 @@ web/src/**  (lib/types.ts and lib/protocol.ts are provided by the architecture l
 - the `reviewer.ts` output **contains no React** (after building, `grep -c react dist/reviewer.js` is 0)
 - Tests that must be written (vitest):
   - `lib/selection.ts`: computes the correct `SelectionInput` from a constructed DOM + Range, including the "selection spanning blocks shrinks to the start block" case
-  - `lib/protocol.ts`: `isArtMessage` returns false for a message missing the `artx` field
+  - `lib/protocol.ts`: `isArtMessage` returns false for a message missing the `art` field
   - `lib/sse.ts`: each SSE event maps to the correct invalidate key
 
 ---

@@ -15,7 +15,7 @@ First release. Covers the complete publish → review → address loop for both 
 
 **Vault and CLI** — the M0 loop.
 
-- `artx init` creates a vault: directory skeleton, `git init`, `.gitattributes` with `merge=union` on comment files, and an `AGENTS.md` describing the protocol to agents.
+- `artx init` creates a vault: directory skeleton, `git init`, `.gitattributes` with `merge=union` on comment files, a `.gitignore` covering the token-bearing `serve.lock`, and an `AGENTS.md` describing the protocol to agents.
 - `artx new <slug> --type md|html` allocates an immutable 6-character doc id, writes the skeleton file, and prints `{id, path, url}`. Identity lives in markdown frontmatter (`aid:`) or an HTML `<meta name="aid">`, so directories can be renamed without orphaning comments.
 - `artx list`, `artx path`, `artx open` for locating and opening artifacts.
 - `artx comments`, `artx reply`, `artx addressed`, `artx resolve`, `artx reopen` for the comment lifecycle. Every command supports `--json`; exit codes are `0` success, `1` error, `2` not found.

@@ -614,7 +614,7 @@ func (v *Vault) Author() string {
 
 // AgentsTemplate is the AGENTS.md content that artx init writes (design doc §10, verbatim).
 func AgentsTemplate() []byte {
-	return []byte(`# This project's deliverables are published via art
+	return []byte(`# This project's deliverables are published via artx
 
 - When producing a proposal/demo: run ` + "`artx new <slug> --type md|html --json`" + ` to get a
   path, then write the content there yourself with your own file tools; your reply
