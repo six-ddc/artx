@@ -20,6 +20,12 @@ make go-build        # Go only, against the placeholder UI
 ./bin/artx init /tmp/demo && cd /tmp/demo && artx serve
 ```
 
+Try `artx` in a scratch directory, never in this repository. `artx init` turns
+whatever directory it is given into a vault and commits the scaffolding —
+`AGENTS.md`, `.gitattributes`, `.artx/config.yaml` — into the git repo it lands
+in. Run it at the root of a checkout and it commits vault scaffolding into the
+project history.
+
 For frontend work, run the backend and the Vite dev server side by side. Vite proxies `/api` and `/raw` to `:7777`.
 
 ```bash
