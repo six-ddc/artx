@@ -108,6 +108,18 @@ mkdir -p "$VAULT"
 [[ -d "$VAULT/.git" ]] || fail "init did not create a git repository"
 ok "vault ready (.art/config.yaml + git)"
 
+# .art/serve.lock holds the --token in plaintext so local CLI calls need no
+# configuration. The watcher's auto-commit stages paths, and a user running
+# `git add -A` stages everything, so the only thing keeping that token out of
+# git history is this ignore rule. Assert the rule exists AND that git really
+# honours it, rather than trusting the file's contents.
+assert_grep "$VAULT/.gitignore" '^\.art/serve\.lock$' "vault .gitignore ignores .art/serve.lock"
+mkdir -p "$VAULT/.art" && : >"$VAULT/.art/serve.lock"
+[[ -z "$(git -C "$VAULT" status --porcelain -uall -- .art/serve.lock)" ]] \
+  || fail "git still sees .art/serve.lock, so the token could be committed"
+rm -f "$VAULT/.art/serve.lock"
+ok "git does not track .art/serve.lock (the token cannot leak into history)"
+
 # ---------------------------------------------------------------------------
 step "art new creates an md artifact; write multi-block content into it"
 # ---------------------------------------------------------------------------
