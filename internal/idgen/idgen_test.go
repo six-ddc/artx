@@ -2,6 +2,7 @@ package idgen
 
 import (
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -80,9 +81,17 @@ func TestThreadOfComment(t *testing.T) {
 	}
 }
 
-func TestEventIDUnique(t *testing.T) {
-	seen := make(map[string]struct{})
-	for i := 0; i < 1000; i++ {
+// TestEventIDUniqueTightLoop drives EventID from a single goroutine as fast
+// as possible, which is exactly the scenario where same-millisecond
+// suffix collisions used to be a real, non-negligible risk (a plain
+// independent crypto/rand draw for the 4-char suffix collides ~26% of the
+// time at 1000 calls within one millisecond). Uniqueness here is now
+// guaranteed by construction, not probabilistically, so this must never be
+// flaky.
+func TestEventIDUniqueTightLoop(t *testing.T) {
+	const n = 10_000
+	seen := make(map[string]struct{}, n)
+	for i := 0; i < n; i++ {
 		id := EventID()
 		if id == "" {
 			t.Fatal("EventID() returned empty string")
@@ -90,10 +99,50 @@ func TestEventIDUnique(t *testing.T) {
 		if !strings.Contains(id, "-") {
 			t.Fatalf("EventID() = %q, want a '-' separator", id)
 		}
+		if _, dup := seen[id]; dup {
+			t.Fatalf("duplicate event id in a tight loop: %s (call %d)", id, i)
+		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 1000 {
-		t.Fatalf("got %d unique event ids out of 1000", len(seen))
+	if len(seen) != n {
+		t.Fatalf("got %d unique event ids out of %d", len(seen), n)
+	}
+}
+
+// TestEventIDUniqueConcurrent is the concurrent-safety half of the same
+// acceptance check: EventID can be called both from a serve Writer
+// goroutine and directly from the CLI, so it must stay collision-free
+// under real concurrency too. Run with -race.
+func TestEventIDUniqueConcurrent(t *testing.T) {
+	const goroutines = 8
+	const perGoroutine = 1000
+
+	ids := make([][]string, goroutines)
+	var wg sync.WaitGroup
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			local := make([]string, perGoroutine)
+			for i := 0; i < perGoroutine; i++ {
+				local[i] = EventID()
+			}
+			ids[g] = local
+		}(g)
+	}
+	wg.Wait()
+
+	seen := make(map[string]struct{}, goroutines*perGoroutine)
+	for _, local := range ids {
+		for _, id := range local {
+			if _, dup := seen[id]; dup {
+				t.Fatalf("duplicate event id under concurrency: %s", id)
+			}
+			seen[id] = struct{}{}
+		}
+	}
+	if want := goroutines * perGoroutine; len(seen) != want {
+		t.Fatalf("got %d unique event ids, want %d", len(seen), want)
 	}
 }
 

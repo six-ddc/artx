@@ -11,8 +11,10 @@ package idgen
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -45,12 +47,80 @@ func ThreadID() string { return ThreadPrefix + Random(ThreadIDLen) }
 // ReplyID returns a reply id shaped like <thread>.x8q.
 func ReplyID(threadID string) string { return threadID + "." + Random(ReplyIDLen) }
 
+// eventSuffixSpace is the number of distinct EventSuffix-character base36
+// strings: 36^EventSuffix.
+var eventSuffixSpace = func() uint32 {
+	n := uint32(1)
+	for i := 0; i < EventSuffix; i++ {
+		n *= uint32(len(Alphabet))
+	}
+	return n
+}()
+
+var (
+	eventIDMu     sync.Mutex
+	eventIDLastMs int64
+	eventIDNext   uint32
+)
+
 // EventID returns an event id shaped like <base36(unixMilli)>-<4 random
 // chars>. It doubles as the event's dedup key: git's merge=union can cause
 // the same event block to appear twice, and folding dedups by this id.
+//
+// Within one process, uniqueness inside a single millisecond is guaranteed
+// **by construction**, not just probabilistically. A plain independent
+// crypto/rand draw for the 4-character suffix collides with real,
+// non-negligible probability at realistic issuance rates (~26% at 1000 ids
+// in the same millisecond, by the birthday bound) — and because EventID is
+// the fold dedup key, a collision silently drops one of the two colliding
+// events. That burst case is single-process (a watcher pass appending many
+// remap events), which is what the guarantee below covers. Two separate
+// processes issuing in the same millisecond — or two machines merging via
+// merge=union — still rely on the random starting points not overlapping,
+// which at their far lower per-millisecond rates is a negligible risk
+// rather than the routine one above. To close the in-process gap: the
+// first call in a given millisecond picks a random starting point
+// in the suffix space (36^EventSuffix = 1,679,616 values), and every
+// subsequent call within that same millisecond advances to the next slot
+// (wrapping if the space is ever exhausted, which realistic call volumes
+// never approach). Crossing into a new millisecond resets to a fresh
+// random starting point, so ids are not sequentially guessable across
+// milliseconds. This function is safe for concurrent use — it may be
+// called both from a serve Writer goroutine and directly from the CLI.
 func EventID() string {
+	eventIDMu.Lock()
 	ms := time.Now().UnixMilli()
-	return strconv.FormatInt(ms, 36) + "-" + Random(EventSuffix)
+	if ms != eventIDLastMs {
+		eventIDLastMs = ms
+		eventIDNext = randomSuffixStart()
+	}
+	idx := eventIDNext
+	eventIDNext = (eventIDNext + 1) % eventSuffixSpace
+	eventIDMu.Unlock()
+
+	return strconv.FormatInt(ms, 36) + "-" + encodeSuffix(idx)
+}
+
+// randomSuffixStart draws a uniformly random starting index into the
+// EventSuffix-character suffix space, using crypto/rand.
+func randomSuffixStart() uint32 {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	return binary.BigEndian.Uint32(b[:]) % eventSuffixSpace
+}
+
+// encodeSuffix renders idx as an EventSuffix-character base36 string,
+// zero-padded on the left (i.e. using Alphabet's first character as filler).
+func encodeSuffix(idx uint32) string {
+	base := uint32(len(Alphabet))
+	buf := make([]byte, EventSuffix)
+	for i := EventSuffix - 1; i >= 0; i-- {
+		buf[i] = Alphabet[idx%base]
+		idx /= base
+	}
+	return string(buf)
 }
 
 // IsThreadID reports whether s has the shape of a thread id.

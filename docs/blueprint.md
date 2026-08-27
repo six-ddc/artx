@@ -547,7 +547,7 @@ Design doc §13, resolution 1 only specifies that doc ids are random. **This blu
 | element (`data-aid`) | 6 base36 chars | `b2c9x1` |
 | thread | `c` + 5 base36 chars | `c7k2f9` |
 | reply | `<thread>.` + 3 base36 chars | `c7k2f9.x8q` |
-| event (`eid`) | `base36(unixMilli)-<4 base36 chars>` | `lz3k9a2-f8q1` |
+| event (`eid`) | `base36(unixMilli)-<4 base36 chars>` | `lz3k9a2-f8q1` — within one process, uniqueness inside the same millisecond is guaranteed **by construction** (a per-millisecond randomized starting point, advanced deterministically for each subsequent call in that millisecond), not merely by chance: an independent random draw per call collides often enough during a burst — a watcher pass appending many remap events — to silently drop events at the fold dedup step. Across processes or machines the random starting points still have to not overlap, which at those far lower per-millisecond rates is negligible |
 
 **Reason (a deliberate deviation from the design doc's `c12` / `c12.1` examples)**: when two machines each append comments to the same document, incrementing sequence numbers **inevitably collide** once they converge through `merge=union`, and an id collision makes fold merge two distinct threads — that is silent data corruption. Random ids are what make "remote = git" actually hold. CLI arguments accept unique-prefix matching, so day-to-day typing is unaffected.
 
