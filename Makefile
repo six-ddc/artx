@@ -65,6 +65,15 @@ smoke:
 check: vet test
 	@out=$$(gofmt -l ./cmd ./internal); \
 	if [[ -n "$$out" ]]; then echo "these files are not gofmt'd; run make fmt:"; echo "$$out"; exit 1; fi
+	@# The placeholder lives in two places: the source under scripts/ and the
+	@# copy make placeholder writes into the embed directory. They drifted once
+	@# already, and the copy is what actually ships, so a mismatch is invisible
+	@# until someone opens the served page. Only compare when the embed copy is
+	@# the placeholder — after make web it is a real build and must differ.
+	@if grep -q artx-dist-placeholder $(DIST)/index.html 2>/dev/null; then \
+	  diff -q $(PLACEHOLDER) $(DIST)/index.html >/dev/null || { \
+	    echo "$(DIST)/index.html is a placeholder but does not match $(PLACEHOLDER); run make placeholder"; exit 1; }; \
+	fi
 	@if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
 	  git diff --exit-code || { echo "the working tree has uncommitted changes"; exit 1; }; \
 	fi
