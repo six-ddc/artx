@@ -1,0 +1,88 @@
+version: 2
+
+project_name: art
+
+# The binary embeds the built frontend (internal/server/dist). The repo only
+# carries a placeholder index.html so that `go build ./...` works without a
+# frontend toolchain, which means a release build MUST run `make web` first —
+# otherwise the published binaries would serve the placeholder page.
+# This also implies the release runner needs Node + pnpm, not just Go.
+before:
+  hooks:
+    - go mod download
+    - make web
+
+builds:
+  - id: art
+    main: ./cmd/art
+    binary: art
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/six-ddc/art/internal/version.Version={{ .Version }}
+      - -X github.com/six-ddc/art/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/six-ddc/art/internal/version.Date={{ .CommitDate }}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: art
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-next'
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Other
+      order: 99
+
+release:
+  draft: false
+  prerelease: auto
+
+# Homebrew tap — the tap repository name is not decided yet, so this is left
+# commented out on purpose. Filling in `repository.name` and adding a token
+# with push access to that tap is all it needs.
+#
+# brews:
+#   - name: art
+#     repository:
+#       owner: six-ddc
+#       name: homebrew-tap        # TBD
+#       token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
+#     homepage: https://github.com/six-ddc/art
+#     description: Artifact repository with a review loop for agent output
+#     license: Apache-2.0
+#     test: |
+#       system "#{bin}/art", "--version"

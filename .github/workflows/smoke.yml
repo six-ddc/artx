@@ -1,0 +1,45 @@
+name: Browser smoke
+
+# Kept out of the per-push CI: the Chromium download this needs is ~150MB and
+# would dominate the runtime of every pull request. It covers the one gap the
+# other suites structurally cannot — actually mounting the React tree in a real
+# browser — so it runs on demand and nightly.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Browser smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: make build
+        run: make build
+
+      - name: Install Chromium
+        working-directory: web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: make smoke
+        run: make smoke
