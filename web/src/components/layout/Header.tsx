@@ -28,10 +28,11 @@ export function Header() {
     <header className="sticky top-0 z-10 h-12 border-b border-line bg-desk/90 backdrop-blur">
       <div className="mx-auto flex h-full max-w-6xl items-center gap-4 px-4 sm:px-6">
         <Link to="/" className="art-mono flex items-baseline gap-2.5 lowercase">
-          {/* The one branding flourish: the last letter sits on a marker-amber highlight. */}
-          <span className="text-base font-semibold text-ink">
-            art<span className="bg-marker px-0.5 text-marker-ink">x</span>
-          </span>
+          {/* The one branding flourish: the whole wordmark struck by the
+              highlighter — the logo is the product's core action itself,
+              same fixed marker-pen colors as the anchor highlight (see
+              .art-wordmark in styles.css). */}
+          <span className="art-wordmark text-base font-semibold">artx</span>
           <span className="truncate text-xs text-ink-2">~/{health?.vault ?? '…'}</span>
         </Link>
 

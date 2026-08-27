@@ -281,15 +281,39 @@
    layering the theme color at low opacity straight onto dark body text
    still leaves the text light-colored, and contrast drops to unreadable
    (confirmed by testing dark-mode screenshots). */
+:root {
+  /* Fixed highlighter colors shared by every "marker pen" surface (anchor
+     highlights, the wordmark) — see the rationale above: hardcoded so it
+     reads the same regardless of light/dark theme. */
+  --marker-highlight-bg: oklch(0.8 0.16 75 / 70%);
+  --marker-highlight-fg: oklch(0.22 0.02 60);
+}
 .art-anchor-exact {
-  background-color: oklch(0.8 0.16 75 / 70%);
-  color: oklch(0.22 0.02 60);
+  background-color: var(--marker-highlight-bg);
+  color: var(--marker-highlight-fg);
   border-radius: 0.2em;
   padding: 0.05em 0.15em;
   scroll-margin-block: 6rem;
 }
 .art-anchor-exact.art-anchor-focused {
   background-color: oklch(0.75 0.19 55 / 90%);
+}
+
+/* Wordmark ("artx" in the Header): the logo IS the product's core action —
+   a whole word struck by the highlighter, same fixed marker-pen colors as
+   .art-anchor-exact above (deliberately theme-invariant, matching the
+   anchor highlight's own theme-invariance). A slight counter-rotation and
+   asymmetric padding (more on the right) suggest a single pen stroke
+   without resorting to a jagged/irregular SVG edge, which would look messy
+   against the mono, tool-like aesthetic. */
+.art-wordmark {
+  display: inline-block;
+  background-color: var(--marker-highlight-bg);
+  color: var(--marker-highlight-fg);
+  padding: 1px 9px 1px 6px;
+  border-radius: 3px;
+  transform: rotate(-1deg);
+  letter-spacing: -0.01em;
 }
 .art-anchor-approx {
   outline: 1.5px dashed var(--color-ink-3);
