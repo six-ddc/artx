@@ -5,12 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
-// newInitCmd implements art init [dir] (W-core).
+// newInitCmd implements artx init [dir] (W-core).
 //
-// Behavior: creates the .art/ skeleton, writes .art/config.yaml, runs git
+// Behavior: creates the .artx/ skeleton, writes .artx/config.yaml, runs git
 // init, writes .gitattributes (with the merge=union rule), generates an
 // AGENTS.md template, and registers the vault in the global registry. Idempotent
 // when the directory is already a vault — it only fills in what's missing.

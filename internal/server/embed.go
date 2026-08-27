@@ -38,6 +38,6 @@ func DistFS() (fs.FS, error) { return fs.Sub(dist, "dist") }
 
 // PlaceholderMarker is the marker string embedded in the placeholder page;
 // Placeholder() checks for its presence.
-const PlaceholderMarker = "art-dist-placeholder"
+const PlaceholderMarker = "artx-dist-placeholder"
 
 var errTokenRequired = errors.New("server: --host requires --token")

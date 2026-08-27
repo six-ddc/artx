@@ -1,4 +1,4 @@
-# art Implementation Blueprint v1.0
+# artx Implementation Blueprint v1.0
 
 > Targets the full M0–M2 implementation · 2026-08-24 · the sole requirements source is `docs/design.md`; this document covers only **how to implement it**
 >
@@ -27,7 +27,7 @@ art/
 ├── docs/
 │   ├── design.md                    requirements (read-only)
 │   └── blueprint.md                 this document
-├── cmd/art/
+├── cmd/artx/
 │   ├── main.go                      entry point + exit code mapping    [arch layer written]
 │   ├── root.go                      command tree + openVault/dial/emit [W-core]
 │   ├── init.go  new.go  path.go  list.go  open.go                      [W-core]
@@ -92,7 +92,7 @@ watcher ──► vault, eventlog, remap, htmlaid, gitx, api
 render ──► mdsrc
 server ──► vault, eventlog, render, watcher, api, config, lockfile
 client ──► api, lockfile
-cmd/art ──► everything
+cmd/artx ──► everything
 ```
 
 Acyclic. **Before adding any cross-package dependency, confirm it introduces no cycle** — in particular `anchor → eventlog` is forbidden (it would form a cycle with `eventlog → anchor`).
@@ -109,7 +109,7 @@ Constants: `DocTypeMD/DocTypeHTML`, `StatusOpen/StatusAddressed/StatusResolved`,
 
 Types: `Doc`, `DocDetail`, `DocsResponse`, `ThreadAnchor`, `Reply`, `Addressed`, `Thread`, `CommentsResponse`, `SelectionInput`, `ElementInput`, `EventRequest`, `EventResponse`, `NewDocRequest/NewDocResponse`, `HealthResponse`, `CompactRequest/CompactStat/CompactResponse`, `ErrorResponse`, `SSEComment`, `SSEDocChange`.
 
-**Key ruling**: `art comments --json` and `GET /api/docs/{id}/comments` emit the **same** `[]api.Thread`. This is deliberate, not coincidence — when the CLI probes a live serve it forwards the request to the API, and both paths must produce byte-identical JSON; otherwise an agent's behavior would drift depending on whether serve happens to be running.
+**Key ruling**: `artx comments --json` and `GET /api/docs/{id}/comments` emit the **same** `[]api.Thread`. This is deliberate, not coincidence — when the CLI probes a live serve it forwards the request to the API, and both paths must produce byte-identical JSON; otherwise an agent's behavior would drift depending on whether serve happens to be running.
 
 ### 3.2 `internal/mdsrc` — single source of truth for md source positions (implemented by the architecture layer, frozen)
 
@@ -169,7 +169,7 @@ func Quote(src []byte, start, end int) (exact, prefix, suffix string)
 
 ```go
 const KindCreate/KindReply/KindEdit/KindAddressed/KindResolve/KindReopen/KindRemap/KindOrphan/KindArchive
-const CommentsDir = ".art/comments"
+const CommentsDir = ".artx/comments"
 const DefaultCompactSizeBytes, DefaultCompactResolvedAge
 var ErrCorruptTail, ErrThreadNotFound
 var StatusKinds map[string]string
@@ -253,8 +253,8 @@ func (v *Vault) Author() string
 
 ## 4. Comment event YAML schema specification
 
-File: `<vault>/.art/comments/<docid>.yaml`, a multi-document YAML stream, one `---` block per event.
-Archive: `<vault>/.art/comments/<docid>.archive.yaml`, containing only `archive` events.
+File: `<vault>/.artx/comments/<docid>.yaml`, a multi-document YAML stream, one `---` block per event.
+Archive: `<vault>/.artx/comments/<docid>.archive.yaml`, containing only `archive` events.
 
 ### 4.1 Full field table
 
@@ -283,9 +283,9 @@ Archive: `<vault>/.art/comments/<docid>.archive.yaml`, containing only `archive`
 | `e` | Required | Optional | Producer |
 |---|---|---|---|
 | `create` | `eid ts thread author body anchor` | `rev` | browser / CLI |
-| `reply` | `eid ts thread id author body` | — | browser / CLI (`art reply`) |
+| `reply` | `eid ts thread id author body` | — | browser / CLI (`artx reply`) |
 | `edit` | `eid ts target body` | `author` | browser |
-| `addressed` | `eid ts thread by` | `commit note` | CLI (`art addressed`) |
+| `addressed` | `eid ts thread by` | `commit note` | CLI (`artx addressed`) |
 | `resolve` | `eid ts thread by` | — | browser / CLI |
 | `reopen` | `eid ts thread by` | `note` | browser / CLI |
 | `remap` | `eid ts thread start end` | `rev` | watcher |
@@ -320,17 +320,17 @@ Archive: `<vault>/.art/comments/<docid>.archive.yaml`, containing only `archive`
 
 ### 4.5 Corruption tolerance
 
-`Store.Read`'s decoder stops at the first error, **returns every event parsed so far** and sets `ReadReport.TailCorrupt` — **it returns no error**. This is self-consistent with append-only: damage can only be at the tail of the file. `art doctor --fix` calls `Truncate` to trim it.
+`Store.Read`'s decoder stops at the first error, **returns every event parsed so far** and sets `ReadReport.TailCorrupt` — **it returns no error**. This is self-consistent with append-only: damage can only be at the tail of the file. `artx doctor --fix` calls `Truncate` to trim it.
 
 ### 4.6 compact
 
-Triggers: `art compact` manually, or serve detecting a log > 256KB / a thread resolved more than 30 days ago. The flock is held throughout:
+Triggers: `artx compact` manually, or serve detecting a log > 256KB / a thread resolved more than 30 days ago. The flock is held throughout:
 
 1. Threads that are resolved and whose resolve time exceeds `ResolvedAge` → collapsed into a single `archive` event appended to `.archive.yaml`, and removed from the active file
 2. The remaining threads' edit chains collapse into the create/reply body
 3. remap chains collapse into the create anchor (keeping the last start/end/rev)
 4. Write `<docid>.yaml.tmp`, then `rename` for an atomic replace
-5. One separate git commit: `art: compact <docid>`
+5. One separate git commit: `artx: compact <docid>`
 
 ---
 
@@ -356,7 +356,7 @@ Base URL: `http://127.0.0.1:7777` (can be changed by `--port` / vault config). A
 | GET | `/api/stream` | — | SSE |
 | GET | `/raw/{id}/` | — | html artifact, reviewer script already injected |
 | GET | `/raw/{id}/{path...}` | — | static assets inside the artifact directory |
-| GET | `/_art/{path...}` | — | embedded frontend assets (Vite `base: '/_art/'`) |
+| GET | `/_artx/{path...}` | — | embedded frontend assets (Vite `base: '/_artx/'`) |
 | GET | `/`, `/a/{id}`, any other non-`/api` path | — | SPA shell `index.html` |
 
 `GET /api/docs/{id}` supports the query parameter `?v=<sha>`: it renders the content at that git revision, and `rev0` in the response is that sha. Historical versions are **read-only**; POSTing events to a historical version returns 409 `conflict`.
@@ -376,7 +376,7 @@ Field names and types are in `web/src/lib/types.ts` (one-to-one with `internal/a
 | `resolve` | `thread` | |
 | `reopen` | `thread` | `note` is optional |
 
-When `author` is omitted the server fills it in: local mode takes `$USER`; `--token` mode takes `art-web <display name>`, where the display name comes from the request body's `author` or defaults to `reviewer` (design doc §13, resolution 2: the token is the identity, plus a self-reported display name is allowed).
+When `author` is omitted the server fills it in: local mode takes `$USER`; `--token` mode takes `artx-web <display name>`, where the display name comes from the request body's `author` or defaults to `reviewer` (design doc §13, resolution 2: the token is the identity, plus a self-reported display name is allowed).
 
 **The `SelectionInput` contract (the most important one)**: the frontend does **not** compute source-file offsets itself. It only reports
 
@@ -432,7 +432,7 @@ Local mode (no `--token`): the middleware passes everything through.
 
 1. `Authorization: Bearer <token>`
 2. query parameter `?token=<token>`
-3. Cookie `art_token`
+3. Cookie `artx_token`
 
 **Why the cookie is mandatory**: neither `EventSource` nor `<iframe>` can set request headers. The protocol is: the first request to any page carrying `?token=` → the server sets an HttpOnly cookie → all subsequent SSE / iframe / static-asset requests pass on the cookie alone. Once the frontend has read `?token=` it should strip it from the address bar (`history.replaceState`).
 
@@ -467,7 +467,7 @@ Why no off-the-shelf extension: the goldmark ecosystem has no maintained sourcep
 Reasons:
 - `gopkg.in/yaml.v3`'s last release was 2022-05 and upstream is archived — unsuitable as a long-term dependency for a data format;
 - goccy provides **multi-document streaming decoding** via `yaml.NewDecoder(r).Decode(&v)`, exactly what a `---`-separated event stream needs (verified empirically, including the case where the first block is preceded by `---`);
-- unknown fields are ignored by default, so adding event fields in the future will not break parsing in older art builds (verified empirically);
+- unknown fields are ignored by default, so adding event fields in the future will not break parsing in older artx builds (verified empirically);
 - non-ASCII strings are emitted verbatim without quoting, multi-line bodies automatically use the `|-` block scalar, and `git diff` stays readable — this is the core reason the design doc chose YAML over JSONL.
 
 `Event` uses **a single flat struct + `omitempty`** rather than one type per event kind. Reason: the YAML stream is heterogeneous, and a flat struct means decoding never has to "peek at `e` and then decode a second time"; `omitempty` guarantees each emitted block contains only the fields that are meaningful for that event kind.
@@ -480,7 +480,7 @@ Reason: the distribution target is a single macOS/Linux binary (brew/curl). BSD 
 
 ### 6.4 serve probe protocol: the lockfile is the proof of liveness
 
-**Ruling: `<vault>/.art/serve.lock`, JSON format (machine-only, hence not YAML), mode 0600.**
+**Ruling: `<vault>/.artx/serve.lock`, JSON format (machine-only, hence not YAML), mode 0600.**
 
 ```json
 {"pid":12345,"host":"127.0.0.1","port":7777,"token":"...","root":"/Users/x/vaults/work",
@@ -495,7 +495,7 @@ At startup, serve's `AcquireServe` takes `LOCK_EX` on that file and **holds it u
 
 "Can the lock be acquired" is itself the proof of liveness — **no PID liveness check is needed, and there is no PID-reuse race**. After obtaining `ServeInfo` the CLI makes one more `GET /api/health` call to confirm `root` matches before routing (guarding against the port being held by another vault's serve).
 
-In `--token` mode the token is written into serve.lock, so the local CLI needs no configuration — the file is mode 0600 and `.art/serve.lock` goes into `.gitignore`.
+In `--token` mode the token is written into serve.lock, so the local CLI needs no configuration — the file is mode 0600 and `.artx/serve.lock` goes into `.gitignore`.
 
 ### 6.5 CLI → serve routing
 
@@ -520,7 +520,7 @@ Command-to-route mapping:
 | `comments` | `GET /api/docs/{id}/comments` | local `vault.AllThreads` |
 | `reply`/`addressed`/`resolve`/`reopen` | `POST /api/docs/{id}/events` | `Store.Append` (holding the flock) |
 | `compact` | `POST /api/compact` | `Store.Compact` (holding the flock) |
-| `open` | use the probed port | tell the user to run `art serve` first, **never auto-start it** |
+| `open` | use the probed port | tell the user to run `artx serve` first, **never auto-start it** |
 | `init` / `doctor` | always local | local |
 
 `open` does not auto-start a background serve: that would make "who is the single writer" unpredictable.
@@ -561,9 +561,9 @@ Design doc §13, resolution 1 only specifies that doc ids are random. **This blu
 Stack: React 19 + React Compiler, Vite 8 (Rolldown/Oxc), TanStack Router (SPA mode) + TanStack Query, Tailwind v4 + shadcn/ui, TS strict.
 
 `vite.config.ts` essentials:
-- `base: '/_art/'` (matching the backend's `/_art/*` route)
+- `base: '/_artx/'` (matching the backend's `/_artx/*` route)
 - in dev, `server.proxy` forwards `/api` and `/raw` to `http://127.0.0.1:7777`
-- two entries: the main app + `src/reviewer/reviewer.ts`, the latter emitted as an **IIFE, unhashed, with the fixed filename `reviewer.js`** (the backend injects it at the fixed path `/_art/reviewer.js`)
+- two entries: the main app + `src/reviewer/reviewer.ts`, the latter emitted as an **IIFE, unhashed, with the fixed filename `reviewer.js`** (the backend injects it at the fixed path `/_artx/reviewer.js`)
 
 ### 7.1 Routing
 
@@ -648,7 +648,7 @@ The frontend only **collects**; it does not compute offsets (§5.2). Steps:
 
 ### 7.5 The reviewer script's postMessage protocol
 
-Types are defined in `web/src/lib/protocol.ts` (frozen). Every message carries the `art: 1` marker; messages missing that field are ignored without exception.
+Types are defined in `web/src/lib/protocol.ts` (frozen). Every message carries the `artx: 1` marker; messages missing that field are ignored without exception.
 
 **iframe → shell**: `ready{href, aidCount}`, `hover{aid, rect, tag}`, `pick{aid, rect, tag, text, quote?}`, `size{height}`, `scroll{top}`, `edit{aid, html}` (M2)
 
@@ -679,16 +679,16 @@ internal/eventlog/event.go
 internal/eventlog/store.go
 internal/client/client.go
 internal/vault/vault.go
-cmd/art/root.go
-cmd/art/{init,new,path,list,open,comments,reply,addressed,resolve,reopen,compact,doctor}.go
+cmd/artx/root.go
+cmd/artx/{init,new,path,list,open,comments,reply,addressed,resolve,reopen,compact,doctor}.go
 + each package's _test.go
 ```
 
 **Contracts depended on**: `internal/api` (DTOs), `internal/anchor` (the `Anchor` struct — implemented by W-anchor, but the struct is frozen and usable directly), `internal/mdsrc` (already implemented).
 
 **Acceptance criteria**
-- `art init` → `art new x --type md --json` → write content by hand → `art list` / `art path` all pass
-- the `[]api.Thread` emitted by `art comments --json` is structurally identical to the HTTP endpoint's
+- `artx init` → `artx new x --type md --json` → write content by hand → `artx list` / `artx path` all pass
+- the `[]api.Thread` emitted by `artx comments --json` is structurally identical to the HTTP endpoint's
 - Unit tests that must be written:
   - `eventlog`: **the full fold semantics table** — one case per §4.4 rule; the focus is the combination of "out-of-order + duplicate eid + unknown event kind + orphaned events", because that directly determines correctness after a git merge
   - `eventlog`: `Read` on a corrupt trailing block returns the events parsed so far with `TailCorrupt=true` and **returns no error**
@@ -722,7 +722,7 @@ internal/watcher/watcher.go
   - `remap`: `Remap` skips threads with `status=resolved`
   - `htmlaid`: `Inject` idempotency (run twice; the second reports `Changed=false` with an empty `Added`)
   - `htmlaid`: elements that already have `data-aid` **keep their id** after the document structure changes
-  - `watcher`: `Ignore` returns true for `.art/`, `.git/`, and editor temp files
+  - `watcher`: `Ignore` returns true for `.artx/`, `.git/`, and editor temp files
   - `watcher`: self-triggering protection — the write-back triggered by `Process` does not cause a second round of processing
 
 ### W-serve — HTTP server / render / SSE / auth
@@ -731,7 +731,7 @@ internal/watcher/watcher.go
 ```
 internal/render/render.go
 internal/server/server.go
-cmd/art/serve.go
+cmd/artx/serve.go
 + each package's _test.go
 ```
 (`internal/server/embed.go` and `dist/index.html` are provided by the architecture layer — do not touch.)
@@ -762,7 +762,7 @@ web/src/**  (lib/types.ts and lib/protocol.ts are provided by the architecture l
 
 **Contracts depended on**: **only §5 (HTTP API) and §7 (frontend architecture) of this document, plus `web/src/lib/types.ts` + `web/src/lib/protocol.ts`. Do not read the Go code.**
 
-**How to develop**: run the backend first with `go run ./cmd/art serve` (even with handlers unimplemented, development can proceed against any mock server built from §5); `pnpm dev` reaches :7777 through the Vite proxy.
+**How to develop**: run the backend first with `go run ./cmd/artx serve` (even with handlers unimplemented, development can proceed against any mock server built from §5); `pnpm dev` reaches :7777 through the Vite proxy.
 
 **Acceptance criteria**
 - `pnpm build` produces `web/dist/`, containing `index.html`, the hashed assets under `_art/`, and the **fixed filename** `reviewer.js`
@@ -770,7 +770,7 @@ web/src/**  (lib/types.ts and lib/protocol.ts are provided by the architecture l
 - the `reviewer.ts` output **contains no React** (after building, `grep -c react dist/reviewer.js` is 0)
 - Tests that must be written (vitest):
   - `lib/selection.ts`: computes the correct `SelectionInput` from a constructed DOM + Range, including the "selection spanning blocks shrinks to the start block" case
-  - `lib/protocol.ts`: `isArtMessage` returns false for a message missing the `art` field
+  - `lib/protocol.ts`: `isArtMessage` returns false for a message missing the `artx` field
   - `lib/sse.ts`: each SSE event maps to the correct invalidate key
 
 ---
@@ -790,7 +790,7 @@ web/src/**  (lib/types.ts and lib/protocol.ts are provided by the architecture l
 
 ### 9.2 The embed pipeline and placeholder strategy
 
-`internal/server/embed.go` uses `//go:embed all:dist`. The repo permanently carries a minimal `internal/server/dist/index.html` (marked `art-dist-placeholder`), so **`go build ./...` still passes on a machine that has never run the frontend build** — this is the precondition for the four work packages actually running in parallel.
+`internal/server/embed.go` uses `//go:embed all:dist`. The repo permanently carries a minimal `internal/server/dist/index.html` (marked `artx-dist-placeholder`), so **`go build ./...` still passes on a machine that has never run the frontend build** — this is the precondition for the four work packages actually running in parallel.
 
 `.gitignore` rules: `internal/server/dist/*` is ignored entirely, with `!internal/server/dist/index.html` as the exception. `make web` overwrites the whole directory with the real build output.
 
@@ -807,22 +807,22 @@ web/src/**  (lib/types.ts and lib/protocol.ts are provided by the architecture l
 
 ```bash
 make build
-./bin/art init /tmp/art-demo && cd /tmp/art-demo
-../..//bin/art new payment-refactor --type md --json     # note the id / path / url
+./bin/artx init /tmp/artx-demo && cd /tmp/artx-demo
+../..//bin/artx new payment-refactor --type md --json     # note the id / path / url
 # write a few paragraphs of md into path with an editor
-./bin/art serve &                                        # or in the foreground in another terminal
+./bin/artx serve &                                        # or in the foreground in another terminal
 open http://127.0.0.1:7777/                              # index page
 #  → open a doc page → select some text → comment → the thread appears on the right
-./bin/art comments --open --json                         # agent's view: must include path/line/start/end/quote/context
-./bin/art reply <thread> "Condensed; merged into section 2"
-./bin/art addressed <thread>                             # the browser sidebar should update live via SSE
+./bin/artx comments --open --json                         # agent's view: must include path/line/start/end/quote/context
+./bin/artx reply <thread> "Condensed; merged into section 2"
+./bin/artx addressed <thread>                             # the browser sidebar should update live via SSE
 # edit the md, move the commented paragraph up a few lines → the watcher should emit a remap, and the browser highlight follows
 # delete the commented paragraph → the thread becomes an orphan, showing last_exact and the fixed hint
 #  → click resolve in the browser
-./bin/art comments --all --json                          # status should be resolved
+./bin/artx comments --all --json                          # status should be resolved
 ```
 
-Additional `--host` scenario tests: `art serve --host 0.0.0.0` must **refuse to start**; `art serve --host 0.0.0.0 --token secret` must start, and requests without a token must return 401.
+Additional `--host` scenario tests: `artx serve --host 0.0.0.0` must **refuse to start**; `artx serve --host 0.0.0.0 --token secret` must start, and requests without a token must return 401.
 
 ---
 
@@ -834,7 +834,7 @@ If md selection computation (W-anchor) and `data-sourcepos` generation (W-serve)
 
 **Mitigation**: the architecture layer **fully implemented `internal/mdsrc` and got its tests passing** (not a stub), and froze it as the single shared entry point for both packages; `NewMarkdown()` is the project's only goldmark factory. W-serve's rendering acceptance criteria explicitly include the test "`data-sourcepos` matches `mdsrc.Parse`'s block table block for block". `BlockMap` is also made an explicit type, forcing implementers through "segment mapping" instead of casually slicing `src[start:end]` — the latter drags the `> ` prefix in inside blockquotes, and is the easiest mistake to make.
 
-### Risk 2: `art comments --json` and the HTTP API output drifting apart
+### Risk 2: `artx comments --json` and the HTTP API output drifting apart
 
 The same data has two output paths (CLI direct read vs. going through serve); the slightest field discrepancy makes an agent's behavior change with "whether serve is running" — a bug that is nearly undetectable during development, because the developer's serve is always up.
 
@@ -847,7 +847,7 @@ The watcher's aid injection and auto-commit both trigger fsnotify events again; 
 **Mitigation**:
 - The contract nails "single writer" down to two mutually exclusive paths (the `dial` skeleton in §6.5), and `eventlog.Store.Append` **holds the flock itself** — so even if an implementer misses the single writer, the file layer stays safe, degrading into a performance problem rather than data corruption
 - On the serve side, browser/CLI event writes are forced through `server.Writer.Append`; **[Implementation ruling 2026-08-25]** remap/orphan events are persisted by the watcher itself via `Store.Append` (the `Notice` struct has no field to carry an event, and Append's flock keeps it safe); `watcher.Options.Emit` serves only as the SSE notification carrier, and the server merely broadcasts a Notice without writing files
-- `watcher.Ignore` is explicitly required to ignore the entire `.art/` directory (changes to comment files must not trigger remapping)
+- `watcher.Ignore` is explicitly required to ignore the entire `.artx/` directory (changes to comment files must not trigger remapping)
 - W-anchor's acceptance criteria list "self-triggering protection" and "Inject idempotency" as two separate tests
 
 ---
@@ -856,6 +856,6 @@ The watcher's aid injection and auto-commit both trigger fsnotify events again; 
 
 The following are M2 value-adds; the contracts have placeholders but the semantics are not yet detailed — fill them in when implementation reaches that point:
 
-- `art watch --dispatch "claude -p …"`: automatically dispatch a headless agent for new comments. The skeleton has no command file; the work package that reaches this stage adds `cmd/art/watch.go`
+- `artx watch --dispatch "claude -p …"`: automatically dispatch a headless agent for new comments. The skeleton has no command file; the work package that reaches this stage adds `cmd/artx/watch.go`
 - Editing html elements directly in the browser: `htmlaid.ReplaceElementHTML` and `protocol.ts`'s `EditMsg` are already in place; a `POST /api/docs/{id}/element` endpoint is missing
-- Fleshing out the multi-vault registry: `config` already has `Register`; the `art vault add/list/use` subcommands are missing
+- Fleshing out the multi-vault registry: `config` already has `Register`; the `artx vault add/list/use` subcommands are missing

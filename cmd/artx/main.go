@@ -1,4 +1,4 @@
-// Command art is the CLI entry point for the agent-artifact vault and its
+// Command artx is the CLI entry point for the agent-artifact vault and its
 // human-review comment loop.
 package main
 
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // Exit code semantics (design doc §5): 0 success / 1 error / 2 not found.
@@ -19,7 +19,7 @@ const (
 
 func main() {
 	if err := NewRootCmd().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "art:", err)
+		fmt.Fprintln(os.Stderr, "artx:", err)
 		os.Exit(exitCodeFor(err))
 	}
 }

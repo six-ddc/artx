@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/watcher"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/watcher"
 )
 
 func TestFromNotice(t *testing.T) {

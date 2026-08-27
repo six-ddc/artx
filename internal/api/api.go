@@ -44,7 +44,7 @@ const OrphanHint = "The anchored text no longer exists — the feedback was like
 // ---------------------------------------------------------------------------
 
 // Doc is an artifact's summary information, used by the index page and
-// `art list`.
+// `artx list`.
 type Doc struct {
 	ID         string    `json:"id"`       // 6-character base36 doc id, its identity
 	Slug       string    `json:"slug"`     // directory name within the vault
@@ -115,7 +115,7 @@ type ThreadAnchor struct {
 // Reply is a single reply within a thread.
 type Reply struct {
 	ID        string     `json:"id"`     // <thread>.<3-character base36>
-	Author    string     `json:"author"` // e.g. cappu | agent:claude | art-web <reviewer>
+	Author    string     `json:"author"` // e.g. cappu | agent:claude | artx-web <reviewer>
 	Body      string     `json:"body"`
 	CreatedAt time.Time  `json:"created_at"`
 	EditedAt  *time.Time `json:"edited_at,omitempty"`
@@ -130,7 +130,7 @@ type Addressed struct {
 }
 
 // Thread is a thread's current state after folding all of its events. It is
-// the **same** output shape used by both `art comments --json` and
+// the **same** output shape used by both `artx comments --json` and
 // GET /api/docs/{id}/comments.
 type Thread struct {
 	Thread     string       `json:"thread"` // thread id, e.g. c7k2f9
@@ -211,7 +211,7 @@ type EventResponse struct {
 // Other endpoints
 // ---------------------------------------------------------------------------
 
-// NewDocResponse is the output of `art new --json`, and also the response
+// NewDocResponse is the output of `artx new --json`, and also the response
 // body for POST /api/docs.
 type NewDocResponse struct {
 	ID   string `json:"id"`
@@ -257,7 +257,7 @@ type CompactStat struct {
 }
 
 // CompactResponse is the output of both POST /api/compact and
-// `art compact --json`.
+// `artx compact --json`.
 type CompactResponse struct {
 	Stats  []CompactStat `json:"stats"`
 	Commit string        `json:"commit,omitempty"` // sha of the git commit compaction produced

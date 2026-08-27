@@ -28,7 +28,7 @@ import (
 
 // ServeLockName is the serve-detection file's path relative to the vault
 // root.
-const ServeLockName = ".art/serve.lock"
+const ServeLockName = ".artx/serve.lock"
 
 // ErrLocked indicates a non-blocking lock acquisition failed because someone
 // else already holds the lock.
@@ -138,8 +138,8 @@ func WithLock(path string, mode os.FileMode, timeout time.Duration, fn func(f *o
 	return fn(lock.File())
 }
 
-// AcquireServe is called by art serve at startup: it claims
-// <root>/.art/serve.lock and writes info into it. It returns ErrLocked when
+// AcquireServe is called by artx serve at startup: it claims
+// <root>/.artx/serve.lock and writes info into it. It returns ErrLocked when
 // a serve is already running, and the caller should error out. The returned
 // Lock must be held until the process exits.
 func AcquireServe(root string, info ServeInfo) (*Lock, error) {
@@ -180,7 +180,7 @@ func AcquireServe(root string, info ServeInfo) (*Lock, error) {
 // Probe detects whether a serve is running for this vault.
 //
 // Steps:
-//  1. Read <root>/.art/serve.lock; if it doesn't exist -> ErrNoServe.
+//  1. Read <root>/.artx/serve.lock; if it doesn't exist -> ErrNoServe.
 //  2. TryAcquire the same file: success means the previous holder is dead ->
 //     release immediately, remove the stale file, and return ErrNoServe.
 //  3. Failing to get the lock means serve is alive -> validate that

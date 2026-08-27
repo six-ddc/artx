@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // M2 gap: POST /api/docs/{id}/element (blueprint §11). Not on the required

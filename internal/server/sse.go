@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/watcher"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/watcher"
 )
 
 // PingInterval is the SSE heartbeat interval.

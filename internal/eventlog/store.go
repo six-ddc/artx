@@ -12,14 +12,14 @@ import (
 
 	"github.com/goccy/go-yaml"
 
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/idgen"
-	"github.com/six-ddc/art/internal/lockfile"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/idgen"
+	"github.com/six-ddc/artx/internal/lockfile"
 )
 
 // CommentsDir is the event log directory, relative to the vault root.
-const CommentsDir = ".art/comments"
+const CommentsDir = ".artx/comments"
 
 // Compaction trigger thresholds (design doc §6.3); can be overridden by
 // vault configuration.
@@ -54,7 +54,7 @@ func (s *Store) ArchivePath(docID string) string {
 }
 
 // DocIDs lists the ids of all documents that have an event log under
-// .art/comments.
+// .artx/comments.
 func (s *Store) DocIDs() ([]string, error) {
 	dir := filepath.Join(s.root, CommentsDir)
 	entries, err := os.ReadDir(dir)
@@ -86,7 +86,7 @@ func (s *Store) DocIDs() ([]string, error) {
 type ReadReport struct {
 	Events      int      // number of events successfully parsed
 	TailCorrupt bool     // the tail contains a block that could not be parsed
-	TailOffset  int64    // byte offset where the corrupt block starts; art doctor truncates from here
+	TailOffset  int64    // byte offset where the corrupt block starts; artx doctor truncates from here
 	Warnings    []string // human-readable warnings
 }
 
@@ -505,7 +505,7 @@ func (s *Store) Threads(docID string) (*FoldResult, error) {
 }
 
 // Truncate cuts the event log down to its first keep events, used by
-// art doctor to trim a corrupt tail block. Runs under flock, since it
+// artx doctor to trim a corrupt tail block. Runs under flock, since it
 // rewrites the file; only doctor and compact are allowed to call it.
 func (s *Store) Truncate(docID string, keep int) error {
 	path := s.Path(docID)
@@ -565,7 +565,7 @@ func eventThreadID(e Event) string {
 //  4. The active file is atomically rewritten: write <docid>.yaml.tmp,
 //     then rename.
 //
-// The git commit is the caller's responsibility (the art compact CLI
+// The git commit is the caller's responsibility (the artx compact CLI
 // command and serve each commit on their own).
 func (s *Store) Compact(docID string, opts CompactOptions) (api.CompactStat, error) {
 	stat := api.CompactStat{Doc: docID}

@@ -7,19 +7,19 @@ import (
 )
 
 // isolate points XDG_CONFIG_HOME at a fresh temp dir so tests never touch
-// the real user's ~/.config/art/config.yaml.
+// the real user's ~/.config/artx/config.yaml.
 func isolate(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv("ART_VAULT", "")
+	t.Setenv("ARTX_VAULT", "")
 	return dir
 }
 
 func mkVault(t *testing.T, dir string) string {
 	t.Helper()
 	root := filepath.Join(dir, "vault")
-	if err := os.MkdirAll(filepath.Join(root, ".art"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, ".artx"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -153,8 +153,8 @@ func TestFindRoot(t *testing.T) {
 }
 
 // TestResolveFourLevelPriority is the required acceptance test for
-// config.Resolve's four-level priority: explicit flag > ART_VAULT env >
-// upward .art/ search from cwd > registry default_vault.
+// config.Resolve's four-level priority: explicit flag > ARTX_VAULT env >
+// upward .artx/ search from cwd > registry default_vault.
 func TestResolveFourLevelPriority(t *testing.T) {
 	base := isolate(t)
 	rootA := mkVault(t, filepath.Join(base, "a"))
@@ -190,8 +190,8 @@ func TestResolveFourLevelPriority(t *testing.T) {
 		t.Fatalf("Resolve (level 3) = (%q,%q), want (%q,%q)", root, name, rootB, "b")
 	}
 
-	// Level 2: ART_VAULT=a beats cwd being inside vault B.
-	t.Setenv("ART_VAULT", "a")
+	// Level 2: ARTX_VAULT=a beats cwd being inside vault B.
+	t.Setenv("ARTX_VAULT", "a")
 	root, name, err = Resolve("", cwdInB)
 	if err != nil {
 		t.Fatalf("Resolve (level 2): %v", err)
@@ -200,7 +200,7 @@ func TestResolveFourLevelPriority(t *testing.T) {
 		t.Fatalf("Resolve (level 2) = (%q,%q), want (%q,%q)", root, name, rootA, "a")
 	}
 
-	// Level 1: explicit --vault=b beats ART_VAULT=a.
+	// Level 1: explicit --vault=b beats ARTX_VAULT=a.
 	root, name, err = Resolve("b", cwdInB)
 	if err != nil {
 		t.Fatalf("Resolve (level 1): %v", err)
@@ -208,7 +208,7 @@ func TestResolveFourLevelPriority(t *testing.T) {
 	if root != rootB || name != "b" {
 		t.Fatalf("Resolve (level 1) = (%q,%q), want (%q,%q)", root, name, rootB, "b")
 	}
-	t.Setenv("ART_VAULT", "")
+	t.Setenv("ARTX_VAULT", "")
 
 	// Explicit can also be a raw filesystem path, not just a registered name.
 	root, name, err = Resolve(rootB, t.TempDir())

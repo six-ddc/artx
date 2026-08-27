@@ -1,4 +1,4 @@
-module github.com/six-ddc/art
+module github.com/six-ddc/artx
 
 go 1.24.4
 

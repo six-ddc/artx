@@ -13,21 +13,21 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/client"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/lockfile"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/client"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/lockfile"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
-// newWatchCmd implements art watch --dispatch "<cmd>" (W-core; reserved for M2).
+// newWatchCmd implements artx watch --dispatch "<cmd>" (W-core; reserved for M2).
 //
 // When serve is running, it subscribes to serve's SSE /api/stream and
 // re-scans for open comments on any event (simpler than filtering precisely
 // on comment events, and just as correct: an extra scan is cheap). Otherwise
-// it polls the mtime of the .art/comments directory. When a new open comment
+// it polls the mtime of the .artx/comments directory. When a new open comment
 // is found, it runs the dispatch command with sh -c, injecting
-// ART_THREAD/ART_DOC/ART_PATH, dispatching each thread at most once per run.
+// ARTX_THREAD/ARTX_DOC/ARTX_PATH, dispatching each thread at most once per run.
 // --once processes a single pass and exits, for testing.
 func newWatchCmd() *cobra.Command {
 	var dispatch string
@@ -39,7 +39,7 @@ func newWatchCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dispatch == "" {
-				return fmt.Errorf("art watch: --dispatch is required")
+				return fmt.Errorf("artx watch: --dispatch is required")
 			}
 			ctx := cmd.Context()
 			v, err := openVault()
@@ -64,7 +64,7 @@ func newWatchCmd() *cobra.Command {
 					}
 					dispatched[th.Thread] = true
 					if derr := runDispatch(dispatch, th); derr != nil {
-						fmt.Fprintf(os.Stderr, "art watch: dispatch failed for %s: %v\n", th.Thread, derr)
+						fmt.Fprintf(os.Stderr, "artx watch: dispatch failed for %s: %v\n", th.Thread, derr)
 						continue
 					}
 					n++
@@ -100,9 +100,9 @@ func fetchOpenThreads(ctx context.Context, v *vault.Vault, c *client.Client) ([]
 func runDispatch(dispatch string, th api.Thread) error {
 	cmd := exec.Command("sh", "-c", dispatch)
 	cmd.Env = append(os.Environ(),
-		"ART_THREAD="+th.Thread,
-		"ART_DOC="+th.Doc,
-		"ART_PATH="+th.Path,
+		"ARTX_THREAD="+th.Thread,
+		"ARTX_DOC="+th.Doc,
+		"ARTX_PATH="+th.Path,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -121,7 +121,7 @@ func watchPoll(ctx context.Context, root string, interval time.Duration, runPass
 		if mtime, err := commentsDirMtime(root); err == nil && mtime.After(lastMtime) {
 			lastMtime = mtime
 			if _, err := runPass(); err != nil {
-				fmt.Fprintf(os.Stderr, "art watch: %v\n", err)
+				fmt.Fprintf(os.Stderr, "artx watch: %v\n", err)
 			}
 		}
 		select {
@@ -153,7 +153,7 @@ func commentsDirMtime(root string) (time.Time, error) {
 
 func watchSSE(ctx context.Context, info *lockfile.ServeInfo, runPass func() (int, error)) error {
 	if _, err := runPass(); err != nil {
-		fmt.Fprintf(os.Stderr, "art watch: %v\n", err)
+		fmt.Fprintf(os.Stderr, "artx watch: %v\n", err)
 	}
 	hc := &http.Client{}
 	for {
@@ -161,7 +161,7 @@ func watchSSE(ctx context.Context, info *lockfile.ServeInfo, runPass func() (int
 			return ctx.Err()
 		}
 		if err := streamOnce(ctx, hc, info, runPass); err != nil && ctx.Err() == nil {
-			fmt.Fprintf(os.Stderr, "art watch: stream error: %v; retrying in 2s\n", err)
+			fmt.Fprintf(os.Stderr, "artx watch: stream error: %v; retrying in 2s\n", err)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -197,7 +197,7 @@ func streamOnce(ctx context.Context, hc *http.Client, info *lockfile.ServeInfo, 
 			// new open threads; re-diffing against the dispatched set is
 			// cheap and avoids depending on the exact event payload shape.
 			if _, err := runPass(); err != nil {
-				fmt.Fprintf(os.Stderr, "art watch: %v\n", err)
+				fmt.Fprintf(os.Stderr, "artx watch: %v\n", err)
 			}
 		}
 	}

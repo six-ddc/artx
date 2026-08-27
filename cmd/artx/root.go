@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/client"
-	"github.com/six-ddc/art/internal/config"
-	"github.com/six-ddc/art/internal/vault"
-	"github.com/six-ddc/art/internal/version"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/client"
+	"github.com/six-ddc/artx/internal/config"
+	"github.com/six-ddc/artx/internal/vault"
+	"github.com/six-ddc/artx/internal/version"
 )
 
 // globalFlags holds the persistent flags shared by every command.
@@ -31,7 +31,7 @@ var gflags globalFlags
 // W-core.
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "art",
+		Use:           "artx",
 		Short:         "Vault and comment loop for agent-produced artifacts",
 		Version:       version.Version,
 		SilenceUsage:  true,

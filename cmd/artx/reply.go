@@ -7,12 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/idgen"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/idgen"
 )
 
-// newReplyCmd implements art reply <thread> <text> (W-core).
+// newReplyCmd implements artx reply <thread> <text> (W-core).
 // When text is "-", it is read from stdin, so an agent can write a
 // multi-line explanation.
 func newReplyCmd() *cobra.Command {

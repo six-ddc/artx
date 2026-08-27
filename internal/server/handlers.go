@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/gitx"
-	"github.com/six-ddc/art/internal/htmlaid"
-	"github.com/six-ddc/art/internal/idgen"
-	"github.com/six-ddc/art/internal/mdsrc"
-	"github.com/six-ddc/art/internal/version"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/gitx"
+	"github.com/six-ddc/artx/internal/htmlaid"
+	"github.com/six-ddc/artx/internal/idgen"
+	"github.com/six-ddc/artx/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/version"
 )
 
 // These can be overridden in tests to work around idgen not yet being
@@ -231,17 +231,17 @@ func normalizeCommentsResponse(resp *api.CommentsResponse) {
 
 // resolveAuthor implements the identity rules from design doc §13 decision 2
 // and blueprint.md §5.2: in local mode (no token) we take vault.Author()
-// ($ART_AUTHOR/$USER) unless the request explicitly supplies an author; in
+// ($ARTX_AUTHOR/$USER) unless the request explicitly supplies an author; in
 // --token mode the token itself is the identity, and the request body's
 // author is just a self-reported display name, always wrapped as
-// "art-web <display name>" with "reviewer" as the default display name.
+// "artx-web <display name>" with "reviewer" as the default display name.
 func (s *Server) resolveAuthor(reqAuthor string) string {
 	if s.opts.Token != "" {
 		name := reqAuthor
 		if name == "" {
 			name = "reviewer"
 		}
-		return "art-web " + name
+		return "artx-web " + name
 	}
 	if reqAuthor != "" {
 		return reqAuthor
@@ -461,7 +461,7 @@ func (s *Server) handleDocElement(w http.ResponseWriter, r *http.Request) {
 	var commitSHA string
 	if s.opts.Vault != nil && s.opts.Vault.Git != nil {
 		commitSHA, _ = s.opts.Vault.Git.Commit(r.Context(), gitx.CommitOptions{
-			Message: fmt.Sprintf("art: edit element %s in %s", req.AID, a.Slug),
+			Message: fmt.Sprintf("artx: edit element %s in %s", req.AID, a.Slug),
 			Author:  gitx.AuthorHuman,
 			Paths:   []string{a.RelPath},
 		})
@@ -504,7 +504,7 @@ func (s *Server) handleCompact(w http.ResponseWriter, r *http.Request) {
 	var commitSHA string
 	if s.opts.Vault.Git != nil {
 		commitSHA, _ = s.opts.Vault.Git.Commit(r.Context(), gitx.CommitOptions{
-			Message: "art: compact", Author: gitx.AuthorArt,
+			Message: "artx: compact", Author: gitx.AuthorArtx,
 		})
 	}
 	s.hub.Broadcast(api.SSEDocs, struct{}{})
@@ -595,7 +595,7 @@ func (s *Server) artAssetsHandler() http.Handler {
 			WriteError(w, http.StatusInternalServerError, api.ErrInternal, "dist assets unavailable")
 		})
 	}
-	return http.StripPrefix("/_art/", http.FileServer(http.FS(fsys)))
+	return http.StripPrefix("/_artx/", http.FileServer(http.FS(fsys)))
 }
 
 // handleSPA is the fallback for any path that isn't /api, /raw, or /_art:

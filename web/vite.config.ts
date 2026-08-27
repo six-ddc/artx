@@ -7,7 +7,7 @@ const BACKEND = 'http://127.0.0.1:7777';
 
 /**
  * Dev-only convenience: serve the vanilla reviewer bundle at the same fixed
- * path the backend injects in production (`/_art/reviewer.js`), without
+ * path the backend injects in production (`/_artx/reviewer.js`), without
  * needing a separate `vite build --watch` running alongside `pnpm dev`.
  * Built on demand via the Vite JS API using the real reviewer config, so the
  * dev output takes the same iife/no-deps shape as the production build.
@@ -18,7 +18,7 @@ function reviewerDevMiddleware(): Plugin {
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (req.url !== '/_art/reviewer.js') {
+        if (req.url !== '/_artx/reviewer.js') {
           next();
           return;
         }
@@ -44,7 +44,7 @@ function reviewerDevMiddleware(): Plugin {
 }
 
 export default defineConfig({
-  base: '/_art/',
+  base: '/_artx/',
   plugins: [
     // @vitejs/plugin-react 6.x is oxc-based (Vite 8/rolldown); React Compiler
     // is wired in via `compiler: true` + the oxc-transform-react peer dep,

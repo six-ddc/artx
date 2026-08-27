@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/gitx"
-	"github.com/six-ddc/art/internal/lockfile"
+	"github.com/six-ddc/artx/internal/gitx"
+	"github.com/six-ddc/artx/internal/lockfile"
 )
 
 // doctorIssue is one health-check finding, used for --json output.
@@ -20,13 +20,13 @@ type doctorIssue struct {
 	Fixed  bool   `json:"fixed"`
 }
 
-// newDoctorCmd implements art doctor (W-core).
+// newDoctorCmd implements artx doctor (W-core).
 //
 // Checks for, and (with --fix) repairs:
 //   - .gitattributes missing the merge=union rule
 //   - an artifact missing an aid (frontmatter / <meta>)
 //   - a corrupt tail in an event log (eventlog.ReadReport.TailCorrupt -> Truncate)
-//   - a stale .art/serve.lock
+//   - a stale .artx/serve.lock
 //   - an event log that references a document that no longer exists
 func newDoctorCmd() *cobra.Command {
 	var fix bool
@@ -133,7 +133,7 @@ func newDoctorCmd() *cobra.Command {
 				}
 			}
 			if unresolved > 0 {
-				return fmt.Errorf("art doctor: %d issue(s) unresolved (run with --fix)", unresolved)
+				return fmt.Errorf("artx doctor: %d issue(s) unresolved (run with --fix)", unresolved)
 			}
 			return nil
 		},

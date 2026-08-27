@@ -13,8 +13,8 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/mdsrc"
 )
 
 // ContextChars is the target length (in runes, not bytes) of the prefix/suffix.

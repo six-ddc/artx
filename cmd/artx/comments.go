@@ -5,10 +5,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
+	"github.com/six-ddc/artx/internal/api"
 )
 
-// newCommentsCmd implements art comments [--open|--all] [--doc slug] --json (W-core).
+// newCommentsCmd implements artx comments [--open|--all] [--doc slug] --json (W-core).
 //
 // This is the agent's main entry point; the output must match the threads
 // field of GET /api/docs/{id}/comments field for field (both []api.Thread),

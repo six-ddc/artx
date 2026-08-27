@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 func TestNewRequiresTokenForNonLoopbackHost(t *testing.T) {

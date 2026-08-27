@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking. `art` is a small Go binary with an embedded React UI, and the build reflects that: the frontend compiles to static assets that `go:embed` bakes into the binary, so a released `art` has no runtime dependencies.
+Thanks for looking. `artx` is a small Go binary with an embedded React UI, and the build reflects that: the frontend compiles to static assets that `go:embed` bakes into the binary, so a released `artx` has no runtime dependencies.
 
 ## Development environment
 
@@ -9,22 +9,22 @@ Thanks for looking. `art` is a small Go binary with an embedded React UI, and th
 | Go | 1.24+ | everything |
 | Node | 22+ | the web UI |
 | pnpm | any recent | the web UI |
-| git | any | vaults are git repos; `art` shells out to the system `git` |
+| git | any | vaults are git repos; `artx` shells out to the system `git` |
 
-You do not need Node to work on the Go side. The repo keeps a placeholder page committed at `internal/server/dist/index.html`, so `go build ./...` succeeds on a machine that has never run a frontend build. `art serve` prints a warning when it is serving that placeholder, so you are not left debugging a blank page.
+You do not need Node to work on the Go side. The repo keeps a placeholder page committed at `internal/server/dist/index.html`, so `go build ./...` succeeds on a machine that has never run a frontend build. `artx serve` prints a warning when it is serving that placeholder, so you are not left debugging a blank page.
 
 ```bash
-git clone https://github.com/six-ddc/art
-cd art
+git clone https://github.com/six-ddc/artx
+cd artx
 make go-build        # Go only, against the placeholder UI
-./bin/art init /tmp/demo && cd /tmp/demo && art serve
+./bin/artx init /tmp/demo && cd /tmp/demo && artx serve
 ```
 
 For frontend work, run the backend and the Vite dev server side by side. Vite proxies `/api` and `/raw` to `:7777`.
 
 ```bash
 # terminal 1
-go run ./cmd/art serve
+go run ./cmd/artx serve
 # terminal 2
 cd web && pnpm dev
 ```
@@ -41,7 +41,7 @@ cd web && pnpm dev
 | `make vet` | `go vet ./...` |
 | `make fmt` | `gofmt -w` over `./cmd` and `./internal` |
 | `make check` | CI entry point: `vet`, `test`, a read-only `gofmt -l` check, and `git diff --exit-code`. |
-| `make e2e` | Full publish → comment → remap → orphan → resolve loop against a real `art serve`, driving the HTTP API with `curl`. Needs `make build` first. |
+| `make e2e` | Full publish → comment → remap → orphan → resolve loop against a real `artx serve`, driving the HTTP API with `curl`. Needs `make build` first. |
 | `make smoke` | Mount the real component tree in headless Chromium against a real server. Catches render crashes that unit tests, `tsc`, and `vite build` all miss. Needs `make build` first. |
 
 Frontend-only checks live in `web/`: `pnpm test` (vitest), `pnpm typecheck` (`tsc --noEmit`).
@@ -53,7 +53,7 @@ Read these before a non-trivial change:
 - [`docs/design.md`](docs/design.md) — what the product is, what it deliberately is not, and why each technology was chosen. Sections 6 and 7 (the comment event stream, and anchoring plus remapping) carry most of the conceptual weight.
 - [`docs/blueprint.md`](docs/blueprint.md) — how it is implemented. Section 0 lists five design red lines that no change may violate; section 2 has the package dependency graph; sections 4 and 5 are the YAML event schema and HTTP API contract.
 
-The short version of the layering: `internal/api` is a logic-free leaf holding the DTOs. `internal/mdsrc` owns markdown source positions and is the single goldmark factory for the whole project. `internal/eventlog` reads, folds, and compacts the comment stream. `internal/vault` is the facade over a vault directory. `internal/anchor`, `remap`, `htmlaid`, and `watcher` maintain anchor correctness as documents change. `internal/server` and `internal/render` serve it; `cmd/art` is the CLI. The graph is acyclic — check that a new cross-package import keeps it that way, and in particular never import `eventlog` from `anchor`.
+The short version of the layering: `internal/api` is a logic-free leaf holding the DTOs. `internal/mdsrc` owns markdown source positions and is the single goldmark factory for the whole project. `internal/eventlog` reads, folds, and compacts the comment stream. `internal/vault` is the facade over a vault directory. `internal/anchor`, `remap`, `htmlaid`, and `watcher` maintain anchor correctness as documents change. `internal/server` and `internal/render` serve it; `cmd/artx` is the CLI. The graph is acyclic — check that a new cross-package import keeps it that way, and in particular never import `eventlog` from `anchor`.
 
 ## Frozen contracts
 
@@ -62,7 +62,7 @@ Two sets of field definitions are a contract across languages and across process
 - `internal/api/api.go` — the DTOs shared by the Go internals, the CLI's `--json` output, and the HTTP API.
 - `web/src/lib/types.ts` and `web/src/lib/protocol.ts` — the TypeScript mirror of those DTOs, and the `postMessage` protocol between the shell page and the reviewer script inside the sandboxed iframe.
 
-`art comments --json` and `GET /api/docs/{id}/comments` must emit byte-identical JSON for the same data. They are two code paths over one structure precisely so that an agent's behavior does not drift depending on whether `art serve` happens to be running — a bug that is nearly invisible in development, because a developer's serve is always up. If you touch either path, verify both.
+`artx comments --json` and `GET /api/docs/{id}/comments` must emit byte-identical JSON for the same data. They are two code paths over one structure precisely so that an agent's behavior does not drift depending on whether `artx serve` happens to be running — a bug that is nearly invisible in development, because a developer's serve is always up. If you touch either path, verify both.
 
 If a contract change is genuinely necessary, change `api.go`, `types.ts`, and `protocol.ts` in the same commit, and update the corresponding tables in `docs/blueprint.md`.
 
@@ -95,4 +95,4 @@ For pull requests: one logical change per PR, `make check` passing, and a descri
 
 ## Reporting bugs
 
-Include your OS, `art --version`, and the smallest artifact that reproduces the problem. For anchoring bugs, the document content matters more than anything else — attach the markdown, not a screenshot of it.
+Include your OS, `artx --version`, and the smallest artifact that reproduces the problem. For anchoring bugs, the document content matters more than anything else — attach the markdown, not a screenshot of it.

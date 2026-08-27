@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/six-ddc/art/internal/eventlog"
+	"github.com/six-ddc/artx/internal/eventlog"
 )
 
 // eventlog now has a real implementation (no longer a panic skeleton); add an

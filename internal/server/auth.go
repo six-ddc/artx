@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/six-ddc/art/internal/api"
+	"github.com/six-ddc/artx/internal/api"
 )
 
 // TokenCookie is the name of the cookie that carries the token.
@@ -16,7 +16,7 @@ import (
 // to any page causes the server to set an HttpOnly cookie, and all
 // subsequent SSE / iframe / static-asset requests authenticate via that
 // cookie instead."
-const TokenCookie = "art_token"
+const TokenCookie = "artx_token"
 
 // Auth is the authentication middleware. When token is empty (local mode)
 // it passes every request through unchecked.

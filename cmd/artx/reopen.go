@@ -5,15 +5,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
 )
 
-// newResolveCmd implements art resolve <thread> (W-core).
-func newResolveCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "resolve <thread>",
-		Short: "Close a thread",
+// newReopenCmd implements artx reopen <thread> (W-core).
+func newReopenCmd() *cobra.Command {
+	var note string
+	cmd := &cobra.Command{
+		Use:   "reopen <thread>",
+		Short: "Reopen a thread",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -34,7 +35,7 @@ func newResolveCmd() *cobra.Command {
 				if err != nil {
 					return mapNotFound(err)
 				}
-				out, err := c.PostEvent(ctx, docID, api.EventRequest{Type: "resolve", Thread: th.Thread})
+				out, err := c.PostEvent(ctx, docID, api.EventRequest{Type: "reopen", Thread: th.Thread, Note: note})
 				if err != nil {
 					return mapNotFound(err)
 				}
@@ -44,13 +45,14 @@ func newResolveCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				ev := eventlog.NewEvent(eventlog.KindResolve)
+				ev := eventlog.NewEvent(eventlog.KindReopen)
 				ev.Thread = th.Thread
 				ev.By = v.Author()
+				ev.Note = note
 				if err := v.Store.Append(art.ID, ev); err != nil {
 					return err
 				}
-				resp = api.EventResponse{OK: "ok", Thread: th.Thread, EventID: ev.EID, Status: api.StatusResolved}
+				resp = api.EventResponse{OK: "ok", Thread: th.Thread, EventID: ev.EID, Status: api.StatusOpen}
 			}
 
 			return emit(resp, func() {
@@ -58,4 +60,6 @@ func newResolveCmd() *cobra.Command {
 			})
 		},
 	}
+	cmd.Flags().StringVar(&note, "note", "", "reason for reopening")
+	return cmd
 }

@@ -30,7 +30,7 @@ export function Header() {
         <Link to="/" className="art-mono flex items-baseline gap-2.5 lowercase">
           {/* The one branding flourish: the last letter sits on a marker-amber highlight. */}
           <span className="text-base font-semibold text-ink">
-            ar<span className="bg-marker px-0.5 text-marker-ink">t</span>
+            art<span className="bg-marker px-0.5 text-marker-ink">x</span>
           </span>
           <span className="truncate text-xs text-ink-2">~/{health?.vault ?? '…'}</span>
         </Link>

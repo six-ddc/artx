@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 func TestFindDocInList(t *testing.T) {

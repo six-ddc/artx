@@ -1,6 +1,6 @@
 version: 2
 
-project_name: art
+project_name: artx
 
 # The binary embeds the built frontend (internal/server/dist). The repo only
 # carries a placeholder index.html so that `go build ./...` works without a
@@ -13,9 +13,9 @@ before:
     - make web
 
 builds:
-  - id: art
-    main: ./cmd/art
-    binary: art
+  - id: artx
+    main: ./cmd/artx
+    binary: artx
     env:
       - CGO_ENABLED=0
     goos:
@@ -26,13 +26,13 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/six-ddc/art/internal/version.Version={{ .Version }}
-      - -X github.com/six-ddc/art/internal/version.Commit={{ .ShortCommit }}
-      - -X github.com/six-ddc/art/internal/version.Date={{ .CommitDate }}
+      - -X github.com/six-ddc/artx/internal/version.Version={{ .Version }}
+      - -X github.com/six-ddc/artx/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/six-ddc/artx/internal/version.Date={{ .CommitDate }}
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
-  - id: art
+  - id: artx
     formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
@@ -76,13 +76,13 @@ release:
 # with push access to that tap is all it needs.
 #
 # brews:
-#   - name: art
+#   - name: artx
 #     repository:
 #       owner: six-ddc
 #       name: homebrew-tap        # TBD
 #       token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
-#     homepage: https://github.com/six-ddc/art
+#     homepage: https://github.com/six-ddc/artx
 #     description: Artifact repository with a review loop for agent output
 #     license: Apache-2.0
 #     test: |
-#       system "#{bin}/art", "--version"
+#       system "#{bin}/artx", "--version"

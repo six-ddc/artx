@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newPathCmd implements art path <slug|id> (W-core).
+// newPathCmd implements artx path <slug|id> (W-core).
 // Returns vault.ErrNotFound (exit code 2) when not found.
 func newPathCmd() *cobra.Command {
 	return &cobra.Command{

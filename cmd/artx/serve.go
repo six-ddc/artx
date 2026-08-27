@@ -10,12 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/server"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/server"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
-// newServeCmd implements art serve (W-serve).
+// newServeCmd implements artx serve (W-serve).
 //
 // Security line: if --host points to something other than
 // 127.0.0.1/localhost, --token must also be given, or server.New refuses to
@@ -66,7 +66,7 @@ func newServeCmd() *cobra.Command {
 			if server.Placeholder() {
 				fmt.Fprintln(os.Stderr, "============================================================")
 				fmt.Fprintln(os.Stderr, " Warning: the embedded frontend is a placeholder page (`make web` has not been run to build it yet)")
-				fmt.Fprintln(os.Stderr, " The page will appear blank; run `make web` and rebuild the art binary")
+				fmt.Fprintln(os.Stderr, " The page will appear blank; run `make web` and rebuild the artx binary")
 				fmt.Fprintln(os.Stderr, "============================================================")
 			}
 
@@ -77,7 +77,7 @@ func newServeCmd() *cobra.Command {
 				go compactLoop(ctx, v)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "art serve listening on %s (vault %s)\n", srv.BaseURL(), v.Root)
+			fmt.Fprintf(cmd.OutOrStdout(), "artx serve listening on %s (vault %s)\n", srv.BaseURL(), v.Root)
 			return srv.Run(ctx)
 		},
 	}

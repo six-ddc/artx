@@ -254,7 +254,7 @@ func (d *Document) LineOf(off int) int {
 }
 
 // Context returns the raw source text spanning n lines before and after
-// [start,end), used for the context field of `art comments --json`.
+// [start,end), used for the context field of `artx comments --json`.
 func (d *Document) Context(start, end, n int) string {
 	if len(d.lineStarts) == 0 {
 		d.buildLineStarts()

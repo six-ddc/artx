@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/config"
-	"github.com/six-ddc/art/internal/gitx"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/config"
+	"github.com/six-ddc/artx/internal/gitx"
 )
 
 func isolateRegistry(t *testing.T) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ART_VAULT", "")
+	t.Setenv("ARTX_VAULT", "")
 }
 
 func TestInitOpenIdempotent(t *testing.T) {
@@ -169,7 +169,7 @@ func TestDocsAndThreadsRoundTrip(t *testing.T) {
 }
 
 // TestAllThreadsAndScanMarshalToEmptyArrayNotNull is a BLOCKER-1 regression
-// test at the vault layer: art comments --json (no --doc) marshals
+// test at the vault layer: artx comments --json (no --doc) marshals
 // AllThreads' return value directly as a bare JSON array. A nil slice for a
 // vault with zero comments would emit `null` instead of `[]`.
 func TestAllThreadsAndScanMarshalToEmptyArrayNotNull(t *testing.T) {
@@ -224,15 +224,15 @@ func TestAllThreadsAndScanMarshalToEmptyArrayNotNull(t *testing.T) {
 
 func TestAuthorPriority(t *testing.T) {
 	v := &Vault{}
-	t.Setenv("ART_AUTHOR", "")
+	t.Setenv("ARTX_AUTHOR", "")
 	t.Setenv("USER", "sysuser")
 	if got := v.Author(); got != "sysuser" {
 		t.Errorf("Author() = %q, want $USER fallback %q", got, "sysuser")
 	}
 
-	t.Setenv("ART_AUTHOR", "envuser")
+	t.Setenv("ARTX_AUTHOR", "envuser")
 	if got := v.Author(); got != "envuser" {
-		t.Errorf("Author() = %q, want $ART_AUTHOR %q", got, "envuser")
+		t.Errorf("Author() = %q, want $ARTX_AUTHOR %q", got, "envuser")
 	}
 
 	v.Cfg = &config.Vault{Author: "cfguser"}
@@ -323,7 +323,7 @@ func TestResolvePathRejectsSymlinkEscape(t *testing.T) {
 }
 
 // TestNewCommitsSkeleton covers the precondition for "document id is
-// recoverable": once art new writes the skeleton, there must immediately be
+// recoverable": once artx new writes the skeleton, there must immediately be
 // a commit, so git always holds a version carrying the aid that the watcher
 // can recover after an agent's wholesale rewrite wipes it out.
 func TestNewCommitsSkeleton(t *testing.T) {
@@ -358,7 +358,7 @@ func TestNewCommitsSkeleton(t *testing.T) {
 		if err != nil || len(logs) == 0 {
 			t.Fatalf("%s git log is empty: %v", typ, err)
 		}
-		if want := "art: new " + slug; logs[len(logs)-1].Subject != want {
+		if want := "artx: new " + slug; logs[len(logs)-1].Subject != want {
 			t.Errorf("%s first commit subject = %q, want %q", typ, logs[len(logs)-1].Subject, want)
 		}
 	}
@@ -380,7 +380,7 @@ func TestNewWithoutGitStillWorks(t *testing.T) {
 
 // TestInitCommitsSkeleton: init must commit .gitattributes / AGENTS.md /
 // config.yaml itself. The watcher's auto-commit only covers the artifact
-// directories plus .art/comments — nothing else manages these root-level
+// directories plus .artx/comments — nothing else manages these root-level
 // files, and without the merge=union setting in .gitattributes landing in
 // the repo, multi-machine convergence never happens.
 func TestInitCommitsSkeleton(t *testing.T) {
@@ -420,8 +420,8 @@ func TestInitCommitsSkeleton(t *testing.T) {
 
 // TestInitGitignoreCoversServeLock is the required regression test for the
 // serve.lock leak: --token mode writes the bearer token in plaintext into
-// .art/serve.lock (0600 only keeps other local users out, it does nothing
-// to stop a stray `git add -A` from committing it), so `art init` must seed
+// .artx/serve.lock (0600 only keeps other local users out, it does nothing
+// to stop a stray `git add -A` from committing it), so `artx init` must seed
 // a .gitignore that excludes it, and re-running Init must not duplicate the
 // rule or clobber user-added lines.
 func TestInitGitignoreCoversServeLock(t *testing.T) {
@@ -439,8 +439,8 @@ func TestInitGitignoreCoversServeLock(t *testing.T) {
 	if err != nil {
 		t.Fatalf(".gitignore was not created by Init: %v", err)
 	}
-	if !strings.Contains(string(b), ".art/serve.lock") {
-		t.Fatalf(".gitignore = %q, want it to exclude .art/serve.lock", b)
+	if !strings.Contains(string(b), ".artx/serve.lock") {
+		t.Fatalf(".gitignore = %q, want it to exclude .artx/serve.lock", b)
 	}
 
 	// A user's own .gitignore content must survive re-Init, and the rule

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/lockfile"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/lockfile"
 )
 
 func newTestServer(t *testing.T, token string, root string) *httptest.Server {

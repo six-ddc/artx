@@ -64,8 +64,8 @@ func (r *Repo) Available() bool {
 // explicitly via Commit's --author, so here we only need to pin down the
 // committer.
 var committerEnv = []string{
-	"GIT_COMMITTER_NAME=art",
-	"GIT_COMMITTER_EMAIL=art@localhost",
+	"GIT_COMMITTER_NAME=artx",
+	"GIT_COMMITTER_EMAIL=artx@localhost",
 }
 
 func (r *Repo) run(ctx context.Context, args ...string) (string, error) {
@@ -146,7 +146,7 @@ type Author string
 const (
 	AuthorAgent Author = "agent" // content written by an agent
 	AuthorHuman Author = "human" // edited directly in the browser (M2)
-	AuthorArt   Author = "art"   // art itself: aid injection, compact
+	AuthorArtx  Author = "artx"  // artx itself: aid injection, compact
 )
 
 // CommitOptions controls a single commit.
@@ -185,14 +185,14 @@ func (r *Repo) Commit(ctx context.Context, opts CommitOptions) (string, error) {
 		}
 	}
 
-	authorName := "art"
+	authorName := "artx"
 	switch opts.Author {
 	case AuthorAgent:
-		authorName = "art-agent"
+		authorName = "artx-agent"
 	case AuthorHuman:
-		authorName = "art-human"
-	case AuthorArt:
-		authorName = "art"
+		authorName = "artx-human"
+	case AuthorArtx:
+		authorName = "artx"
 	}
 	authorEnv := authorName + " <" + authorName + "@localhost>"
 
@@ -260,10 +260,10 @@ func EnsureGitattributes(root string) error {
 }
 
 // GitattributesLine is the rule line that must be present.
-const GitattributesLine = ".art/comments/*.yaml merge=union"
+const GitattributesLine = ".artx/comments/*.yaml merge=union"
 
 // EnsureGitignore ensures .gitignore contains the rule that keeps
-// .art/serve.lock out of the repo. serve.lock carries the --token secret in
+// .artx/serve.lock out of the repo. serve.lock carries the --token secret in
 // plaintext (blueprint §6.4); its 0600 permissions only keep other local
 // users out, they do nothing to stop it from being committed by a stray
 // `git add -A`.
@@ -272,7 +272,7 @@ func EnsureGitignore(root string) error {
 }
 
 // GitignoreLine is the rule line that must be present.
-const GitignoreLine = ".art/serve.lock"
+const GitignoreLine = ".artx/serve.lock"
 
 // ensureLine appends line to the file at path if it isn't already present on
 // a line of its own, preserving any existing content and creating the file

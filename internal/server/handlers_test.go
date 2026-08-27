@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/mdsrc"
-	"github.com/six-ddc/art/internal/render"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/render"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // ---------------------------------------------------------------------------

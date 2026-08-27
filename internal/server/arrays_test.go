@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // Audit finding (related to BLOCKER-1): fields that are arrays in the contract

@@ -1,6 +1,6 @@
-# art — Agent artifact repository and comment-loop CLI design
+# artx — Agent artifact repository and comment-loop CLI design
 
-> Version v0.4 · 2026-08-24 · The product name `art` (as in artifact) is provisional; final naming TBD
+> Version v0.4 · 2026-08-24 · The product name `artx` (as in artifact) is provisional; final naming TBD
 
 ## 1. Positioning
 
@@ -15,7 +15,7 @@
 - Not a rich-text editor (humans edit via any external editor, or lightweight in-browser editing)
 - Not an agent runtime (no embedded model calls; dispatch only launches headless sessions)
 
-**Design principles**: the filesystem is the database, git is versioning and sync, the browser is the human's UI, the agent brings its own editor. `art` only does the glue plus the one layer of unique value — comments. **Bypassing is harmless**: any tool reading or writing vault files directly cannot corrupt the data; correctness comes from the watcher as a fallback, not from enforcement on the write path.
+**Design principles**: the filesystem is the database, git is versioning and sync, the browser is the human's UI, the agent brings its own editor. `artx` only does the glue plus the one layer of unique value — comments. **Bypassing is harmless**: any tool reading or writing vault files directly cannot corrupt the data; correctness comes from the watcher as a fallback, not from enforcement on the write path.
 
 ## 2. Technology choices
 
@@ -30,7 +30,7 @@
 | Frontend | React 19 + React Compiler, Vite 8 (Rolldown/Oxc), TanStack Router (SPA mode) + TanStack Query, Tailwind v4 + shadcn/ui, TS strict | Fully modern yet purely static export; `pnpm build` produces dist/, packed into the binary by `//go:embed all:dist`. No Next/RSC — the server is Go |
 | Realtime push | SSE | One-way is enough (comment updates, file-change notifications), simpler than WebSocket |
 
-Precedents for Go + go:embed: Gitea, miniflux. All frontend assets are embedded in the binary; `art serve` has zero external dependencies.
+Precedents for Go + go:embed: Gitea, miniflux. All frontend assets are embedded in the binary; `artx serve` has zero external dependencies.
 
 ## 3. Core concepts
 
@@ -43,7 +43,7 @@ Precedents for Go + go:embed: Gitea, miniflux. All frontend assets are embedded 
 
 ```
 vault/
-├── .art/
+├── .artx/
 │   ├── config.yaml              # vault config (port, compaction threshold, etc.)
 │   ├── comments/
 │   │   ├── a7f3.yaml            # active event log (by doc id)
@@ -54,10 +54,10 @@ vault/
 │   └── index.md                 # frontmatter: aid: a7f3
 ├── pricing-demo/
 │   └── index.html               # <meta name="aid" content="b2c9">
-└── .gitattributes               # .art/comments/*.yaml merge=union
+└── .gitattributes               # .artx/comments/*.yaml merge=union
 ```
 
-Global registry `~/.config/art/config.yaml`:
+Global registry `~/.config/artx/config.yaml`:
 
 ```yaml
 default_vault: work
@@ -71,28 +71,28 @@ vaults:
 Every agent-facing command supports `--json`, with semantic exit codes (0 success / 1 error / 2 not found).
 
 ```
-art init [dir]                     # create vault: directory skeleton + git init + .gitattributes + AGENTS.md template
-art new <slug> --type md|html      # allocate an id, create the skeleton file, print {id, path, url}
-art path <slug|id>                 # resolve the absolute path
-art list [--json]                  # all artifacts + open comment counts
-art open [slug]                    # open in the browser (index page by default)
+artx init [dir]                     # create vault: directory skeleton + git init + .gitattributes + AGENTS.md template
+artx new <slug> --type md|html      # allocate an id, create the skeleton file, print {id, path, url}
+artx path <slug|id>                 # resolve the absolute path
+artx list [--json]                  # all artifacts + open comment counts
+artx open [slug]                    # open in the browser (index page by default)
 
-art serve [--host 0.0.0.0] [--token T] [--port 7777] [--no-watch]
+artx serve [--host 0.0.0.0] [--token T] [--port 7777] [--no-watch]
 
-art comments [--open|--all] [--doc slug] --json   # includes path, line number, offset, quote, surrounding context
-art reply <thread> <text>          # append a reply event
-art addressed <thread> [--commit sha]
-art resolve <thread> / art reopen <thread>
-art compact [--doc slug]           # manual compaction (serve also does it automatically at the threshold)
+artx comments [--open|--all] [--doc slug] --json   # includes path, line number, offset, quote, surrounding context
+artx reply <thread> <text>          # append a reply event
+artx addressed <thread> [--commit sha]
+artx resolve <thread> / artx reopen <thread>
+artx compact [--doc slug]           # manual compaction (serve also does it automatically at the threshold)
 ```
 
-**Example `art new --json` output** (the agent takes the path and reads/writes it with its own native Read/Edit tools; the CLI provides no content I/O):
+**Example `artx new --json` output** (the agent takes the path and reads/writes it with its own native Read/Edit tools; the CLI provides no content I/O):
 
 ```json
 {"id":"a7f3","path":"/Users/cappu/vaults/work/payment-refactor/index.md","url":"http://localhost:7777/a/a7f3"}
 ```
 
-**Example `art comments --open --json` output**:
+**Example `artx comments --open --json` output**:
 
 ```json
 [{"thread":"c12","doc":"a7f3","path":".../payment-refactor/index.md",
@@ -106,7 +106,7 @@ art compact [--doc slug]           # manual compaction (serve also does it autom
 
 ### 6.1 Event types and format
 
-`.art/comments/<docid>.yaml`, a multi-document YAML stream: one event = one `---`-separated document, append-only (a write = appending one complete block at the end of the file, O(1) and near-atomic). The Go side reads it streaming with `yaml.Decoder` and folds event by event.
+`.artx/comments/<docid>.yaml`, a multi-document YAML stream: one event = one `---`-separated document, append-only (a write = appending one complete block at the end of the file, O(1) and near-atomic). The Go side reads it streaming with `yaml.Decoder` and folds event by event.
 
 ```yaml
 ---
@@ -165,22 +165,22 @@ A human can open it and understand it directly (this is the core reason for YAML
 
 ### 6.3 Compaction
 
-Triggers: `art compact` manually, or serve detecting a log > 256KB / resolved threads older than 30 days. Actions:
+Triggers: `artx compact` manually, or serve detecting a log > 256KB / resolved threads older than 30 days. Actions:
 
 1. A resolved thread is folded whole into a single summary event and moved into `<docid>.archive.yaml`
 2. The edit chain collapses into the final body (the create event is rewritten in place)
 3. The remap chain collapses into the create event's anchor
-4. Compaction is itself a standalone git commit (`art: compact a7f3`), so the full history is still recoverable from git
+4. Compaction is itself a standalone git commit (`artx: compact a7f3`), so the full history is still recoverable from git
 
 ### 6.4 Concurrent writes and locking
 
-The write strategy for comment files differs from that for document content: documents are "bypassing is harmless", comments **must go through the write funnel** (AGENTS.md states it outright: `.art/comments/` may only be operated on via the CLI / API). Every writer (CLI, browser, watcher) is art's own code, so an advisory lock suffices:
+The write strategy for comment files differs from that for document content: documents are "bypassing is harmless", comments **must go through the write funnel** (AGENTS.md states it outright: `.artx/comments/` may only be operated on via the CLI / API). Every writer (CLI, browser, watcher) is artx's own code, so an advisory lock suffices:
 
 - **serve running → serve is the single writer**: the CLI probes for serve via lockfile/port and routes writes to its API; inside serve a single writer goroutine serializes all events (including the watcher's remaps), so there is no concurrency at the file layer.
 - **serve not running → the CLI appends directly, holding `flock`**: it locks the target yaml, completes a single-block append, and releases. It does not rely on assumptions about O_APPEND atomicity.
 - **No locking across machines**: resolved by git merge=union convergence.
 
-Defense in depth: event id = timestamp + random suffix (no id collisions under concurrency); the parser skips corrupt blocks and warns; `art doctor` trims a trailing partial block — append-only guarantees damage can only occur at the end of the file.
+Defense in depth: event id = timestamp + random suffix (no id collisions under concurrency); the parser skips corrupt blocks and warns; `artx doctor` trims a trailing partial block — append-only guarantees damage can only occur at the end of the file.
 
 ## 7. Anchors and remapping
 
@@ -192,7 +192,7 @@ Defense in depth: event id = timestamp + random suffix (no id collisions under c
 ## 8. serve architecture
 
 ```
-┌─ art serve ───────────────────────────────────────────────────────┐
+┌─ artx serve ───────────────────────────────────────────────────────┐
 │  HTTP (net/http)                                                  │
 │  ├─ GET  /                    index page (embedded)               │
 │  ├─ GET  /a/{id}[?v=sha]      document page / historical version  │
@@ -216,7 +216,7 @@ Defense in depth: event id = timestamp + random suffix (no id collisions under c
 
 **Two rendering red lines**: ① the single source of truth for md rendering is Go-side goldmark (React only consumes the HTML carrying data-sourcepos and attaches overlays); the frontend must never re-render md, or the sourcepos anchor system collapses; ② the reviewer script injected into the sandboxed iframe of an html artifact stays vanilla with zero dependencies — React lives only in the shell application and never enters the sandbox.
 
-**auto-commit**: once the watcher debounce settles, `git add -A && git commit -m "art: update <slug>"`. Authorship distinguishes three classes — agent/human/art (writes through the comment API use `art-web <reviewer>`).
+**auto-commit**: once the watcher debounce settles, `git add -A && git commit -m "artx: update <slug>"`. Authorship distinguishes three classes — agent/human/art (writes through the comment API use `artx-web <reviewer>`).
 
 ## 9. Security
 
@@ -224,15 +224,15 @@ Defense in depth: event id = timestamp + random suffix (no id collisions under c
 - html artifacts always go in a sandboxed iframe, no same-origin; the shell page sets a CSP
 - serve only reads and writes files inside the vault directory; path traversal is validated
 
-## 10. Agent integration (AGENTS.md template, generated by `art init`)
+## 10. Agent integration (AGENTS.md template, generated by `artx init`)
 
 ```markdown
-# This project's deliverables are published through art
+# This project's deliverables are published through artx
 
-- When producing a design/demo: `art new <slug> --type md|html --json` to get the path,
+- When producing a design/demo: `artx new <slug> --type md|html --json` to get the path,
   write the content at that path with your own file tools; your reply must include the returned url.
-- At the start of a session run `art comments --open --json` and work through them one by one:
-  modify the document → `art reply <thread> "<explanation>"` → `art addressed <thread> --commit <sha>`.
+- At the start of a session run `artx comments --open --json` and work through them one by one:
+  modify the document → `artx reply <thread> "<explanation>"` → `artx addressed <thread> --commit <sha>`.
   Do not resolve on your own; resolve belongs to the human.
 - Threads in the orphan state: confirm whether the original feedback has been satisfied, reply with
   an explanation, and ask the human to confirm.
@@ -248,17 +248,17 @@ Acceptance criteria: agent publishes md → human comments in the browser → ag
 
 **M1 (weeks 2–3, invariants automated)**: watcher (diff remapping / orphan / auto-commit); html pipeline (aid injection + iframe picker + element comments); SSE; AGENTS.md generation; `?v=sha` historical version viewing.
 
-**M2 (week 4+, value-add)**: compact; `--host + --token`; `art watch --dispatch "claude -p …"` (new comments automatically dispatch a headless agent, an asynchronous loop); in-browser direct editing of html elements; a fleshed-out multi-vault registry.
+**M2 (week 4+, value-add)**: compact; `--host + --token`; `artx watch --dispatch "claude -p …"` (new comments automatically dispatch a headless agent, an asynchronous loop); in-browser direct editing of html elements; a fleshed-out multi-vault registry.
 
 ## 12. Risks and countermeasures
 
 | Risk | Countermeasure |
 |---|---|
 | goldmark inline-level offsets are unreliable | Depend on block-level sourcepos only, and match by quote within the block (already built into the anchor design) |
-| The agent omits the url / never checks comments | A strong convention in AGENTS.md + `art list` as a fallback; dispatch mode fixes it at the root |
+| The agent omits the url / never checks comments | A strong convention in AGENTS.md + `artx list` as a fallback; dispatch mode fixes it at the root |
 | JS-heavy html demos misbehave in a sandboxed iframe | M1 provides a `--raw` direct-open escape hatch (giving up the comment layer) |
 | Log bloat | Automated compact threshold; archive separation |
-| Name collision | `art` is a working name; check the crates/brew/npm namespaces before release |
+| Name collision | `artx` is a working name; check the crates/brew/npm namespaces before release |
 
 ## 13. Open questions (decided during implementation)
 

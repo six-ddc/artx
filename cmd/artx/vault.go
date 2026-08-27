@@ -7,15 +7,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/config"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/config"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
-// newVaultCmd implements art vault add/list/use (W-core; multi-vault
+// newVaultCmd implements artx vault add/list/use (W-core; multi-vault
 // registry reserved for M2).
 //
-// Operates on the global registry ~/.config/art/config.yaml, the same table
-// used internally by config.Register when art init calls it.
+// Operates on the global registry ~/.config/artx/config.yaml, the same table
+// used internally by config.Register when artx init calls it.
 func newVaultCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vault",

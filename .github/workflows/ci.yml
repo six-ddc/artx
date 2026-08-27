@@ -88,7 +88,7 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
 
       # `make build` embeds the real frontend, so the e2e run also covers the
-      # embed pipeline (SPA shell + /_art/reviewer.js), not just the API.
+      # embed pipeline (SPA shell + /_artx/reviewer.js), not just the API.
       - name: make build
         run: make build
 

@@ -14,7 +14,7 @@
 //     wrote; an event whose on-disk content still matches that digest is
 //     dropped outright — if the content no longer matches, someone really
 //     did edit the file and the event must go through
-//   - changes under .art/ are always ignored (comment files are owned by
+//   - changes under .artx/ are always ignored (comment files are owned by
 //     serve's single writer)
 package watcher
 
@@ -30,12 +30,12 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/gitx"
-	"github.com/six-ddc/art/internal/htmlaid"
-	"github.com/six-ddc/art/internal/remap"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/gitx"
+	"github.com/six-ddc/artx/internal/htmlaid"
+	"github.com/six-ddc/artx/internal/remap"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // Notice.Kind values, corresponding to api.SSEDocChange.Kind.
@@ -275,7 +275,7 @@ func (w *Watcher) Close() error {
 //     skip remapping if there is no git.
 //  4. remap.Remap every non-resolved thread.
 //  5. Append remap/orphan events via eventlog.Store.Append.
-//  6. AutoCommit: gitx.Commit(AuthorArt/AuthorAgent).
+//  6. AutoCommit: gitx.Commit(AuthorArtx/AuthorAgent).
 //  7. Assemble and Emit(Notice).
 func (w *Watcher) Process(ctx context.Context, a *vault.Artifact) (Notice, error) {
 	n := Notice{Kind: kindContent, DocID: a.ID, Path: a.Path}
@@ -413,7 +413,7 @@ func (w *Watcher) ProcessAll(ctx context.Context) ([]Notice, error) {
 	return out, nil
 }
 
-// Ignore reports whether an absolute path should be ignored (.art/, .git/,
+// Ignore reports whether an absolute path should be ignored (.artx/, .git/,
 // editor temp files, non-artifact entries).
 func Ignore(root, path string) bool {
 	rel, err := filepath.Rel(root, path)
@@ -430,7 +430,7 @@ func Ignore(root, path string) bool {
 	parts := strings.Split(rel, "/")
 	for _, p := range parts[:len(parts)-1] {
 		if strings.HasPrefix(p, ".") {
-			return true // .art/, .git/, and any other hidden directory
+			return true // .artx/, .git/, and any other hidden directory
 		}
 	}
 
@@ -597,12 +597,12 @@ func slugOf(root, path string) string {
 }
 
 // gitCommitOptions is the fixed shape of the watcher's auto-commit.
-// The author is always AuthorArt: this commit is art itself wrapping up
+// The author is always AuthorArtx: this commit is art itself wrapping up
 // (settling an aid injection / remap), not an agent or a human writing content.
 func gitCommitOptions(a *vault.Artifact) gitx.CommitOptions {
-	// The scope is "this artifact's directory + .art/comments", not `git add -A`.
+	// The scope is "this artifact's directory + .artx/comments", not `git add -A`.
 	//
-	// Including .art/comments is required: the remap/orphan events appended
+	// Including .artx/comments is required: the remap/orphan events appended
 	// this round live there, and they must land in the same commit as the
 	// content change, otherwise the rev and the anchor offsets would drift
 	// apart.
@@ -614,8 +614,8 @@ func gitCommitOptions(a *vault.Artifact) gitx.CommitOptions {
 	// do with it — that's exactly how an html document's id recovery
 	// baseline gets lost.
 	return gitx.CommitOptions{
-		Message: "art: update " + a.Slug,
-		Author:  gitx.AuthorArt,
+		Message: "artx: update " + a.Slug,
+		Author:  gitx.AuthorArtx,
 		Paths:   []string{a.Slug, eventlog.CommentsDir},
 	}
 }

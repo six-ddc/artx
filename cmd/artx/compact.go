@@ -5,16 +5,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/gitx"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/gitx"
 )
 
-// newCompactCmd implements art compact [--doc slug] (W-core, M2).
+// newCompactCmd implements artx compact [--doc slug] (W-core, M2).
 //
 // Compaction is the only operation allowed to rewrite existing event blocks,
 // so it must hold an exclusive flock, and it produces its own git commit on
-// completion: "art: compact <docid>".
+// completion: "artx: compact <docid>".
 func newCompactCmd() *cobra.Command {
 	var doc string
 	var force bool
@@ -76,8 +76,8 @@ func newCompactCmd() *cobra.Command {
 					resp.Stats = append(resp.Stats, stat)
 					if !stat.Skipped && v.Git != nil {
 						if sha, cerr := v.Git.Commit(ctx, gitx.CommitOptions{
-							Message: fmt.Sprintf("art: compact %s", id),
-							Author:  gitx.AuthorArt,
+							Message: fmt.Sprintf("artx: compact %s", id),
+							Author:  gitx.AuthorArtx,
 						}); cerr == nil && sha != "" {
 							resp.Commit = sha
 						}

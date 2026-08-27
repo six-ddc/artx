@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/api"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/api"
 )
 
 func createEvent(eid, ts, thread, author, body string) Event {

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/six-ddc/art/internal/eventlog"
+	"github.com/six-ddc/artx/internal/eventlog"
 )
 
 // fakeAppender is an in-memory eventAppender that records each Append call,

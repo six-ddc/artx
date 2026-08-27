@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/lockfile"
+	"github.com/six-ddc/artx/internal/lockfile"
 )
 
-// newOpenCmd implements art open [slug] (W-core).
+// newOpenCmd implements artx open [slug] (W-core).
 //
 // When no serve is running, it tells the user to start one first rather than
 // auto-launching a background process (auto-launching would make "who is the
@@ -29,7 +29,7 @@ func newOpenCmd() *cobra.Command {
 
 			info, err := lockfile.Probe(v.Root)
 			if err != nil {
-				return fmt.Errorf("art: no serve running for this vault; start one with `art serve` first")
+				return fmt.Errorf("artx: no serve running for this vault; start one with `artx serve` first")
 			}
 
 			target := info.BaseURL() + "/"

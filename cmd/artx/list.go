@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
+	"github.com/six-ddc/artx/internal/api"
 )
 
-// newListCmd implements art list [--json] (W-core).
+// newListCmd implements artx list [--json] (W-core).
 // --json outputs an api.DocsResponse; human mode prints an aligned table:
 // id / slug / type / open / title.
 func newListCmd() *cobra.Command {

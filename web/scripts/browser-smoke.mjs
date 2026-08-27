@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Browser smoke test: open a running `art serve` in a real headless Chromium
+// Browser smoke test: open a running `artx serve` in a real headless Chromium
 // and assert the first screen actually renders.
 //
 // This covers a structural blind spot: lib/*.test.ts only exercises pure
@@ -9,8 +9,8 @@
 // only shows up when something really renders.
 //
 // Usage:
-//   node scripts/browser-smoke.mjs          # art serve on 127.0.0.1:7777
-//   ART_SMOKE_URL=http://127.0.0.1:8080 node scripts/browser-smoke.mjs
+//   node scripts/browser-smoke.mjs          # artx serve on 127.0.0.1:7777
+//   ARTX_SMOKE_URL=http://127.0.0.1:8080 node scripts/browser-smoke.mjs
 //
 // Assertions (any failure exits non-zero):
 //   1. The index page opens without falling into the router's error boundary.
@@ -20,7 +20,7 @@
 
 import { chromium } from 'playwright';
 
-const BASE_URL = (process.env.ART_SMOKE_URL ?? 'http://127.0.0.1:7777').replace(/\/+$/, '');
+const BASE_URL = (process.env.ARTX_SMOKE_URL ?? 'http://127.0.0.1:7777').replace(/\/+$/, '');
 const NAV_TIMEOUT_MS = 15_000;
 
 /** Copy rendered by the router's default error boundary (TanStack Router defaultErrorComponent). */
@@ -49,7 +49,7 @@ async function assertNoErrorBoundary(page, context) {
 }
 
 async function main() {
-  console.log(`art browser smoke test — target ${BASE_URL}`);
+  console.log(`artx browser smoke test — target ${BASE_URL}`);
 
   const browser = await chromium.launch();
   const page = await browser.newPage();

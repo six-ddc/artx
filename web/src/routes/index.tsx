@@ -35,7 +35,7 @@ export function DocsIndex() {
       <div className="border border-line bg-sheet px-4 py-6 text-sm text-ink-2">
         <p>This vault has no documents yet.</p>
         <pre className="art-mono mt-3 overflow-x-auto rounded border border-line bg-muted px-3 py-2 text-xs text-ink">
-          art new &lt;slug&gt; --type md --json
+          artx new &lt;slug&gt; --type md --json
         </pre>
       </div>
     );

@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/htmlaid"
-	"github.com/six-ddc/art/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/htmlaid"
+	"github.com/six-ddc/artx/internal/mdsrc"
 )
 
 // safeFromSelection converts a browser selection into an anchor.

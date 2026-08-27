@@ -5,7 +5,7 @@
 // contract**: both W-anchor (emits remap/orphan) and W-serve (emits browser
 // events) depend on them, so their fields and tags must not change.
 //
-// File format: <vault>/.art/comments/<docid>.yaml, a multi-document YAML
+// File format: <vault>/.artx/comments/<docid>.yaml, a multi-document YAML
 // stream where each event is a block starting with "---". Writers are only
 // allowed to **append complete blocks at the end of the file**; rewriting
 // existing lines is a privilege reserved for Compact.
@@ -15,8 +15,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/idgen"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/idgen"
 )
 
 // Event kinds. Corresponds to the `e:` field in YAML.
@@ -34,7 +34,7 @@ const (
 
 // ErrCorruptTail indicates the event stream's tail contains a block that
 // could not be parsed. Because the stream is append-only, damage can only
-// ever occur at the tail; `art doctor` is responsible for trimming it.
+// ever occur at the tail; `artx doctor` is responsible for trimming it.
 var ErrCorruptTail = errors.New("eventlog: corrupt tail block")
 
 // ErrThreadNotFound indicates a reference to a thread that does not exist.

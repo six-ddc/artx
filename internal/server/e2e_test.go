@@ -11,15 +11,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/mdsrc"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // setupRealVault builds a real *vault.Vault (bypassing vault.Init to avoid the
 // side effect of writing the user's global registry at
-// ~/.config/art/config.yaml, which tests should never do), for use by
+// ~/.config/artx/config.yaml, which tests should never do), for use by
 // end-to-end integration tests. Now that vault/eventlog/anchor/htmlaid are all
 // real implementations, this path no longer needs any fakes.
 func setupRealVault(t *testing.T) *vault.Vault {
@@ -270,7 +270,7 @@ func TestEndToEndRealVaultHTMLArtifactRaw(t *testing.T) {
 	if w2.Code != http.StatusOK {
 		t.Fatalf("raw entry status=%d body=%s", w2.Code, w2.Body.String())
 	}
-	if !strings.Contains(w2.Body.String(), "/_art/reviewer.js") {
+	if !strings.Contains(w2.Body.String(), "/_artx/reviewer.js") {
 		t.Fatalf("html entry point should have the reviewer script injected: %s", w2.Body.String())
 	}
 

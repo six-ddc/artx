@@ -7,7 +7,7 @@
 # mount the component tree; only this step does.
 #
 #   Usage:      make build && scripts/smoke.sh
-#   Keep state: ART_SMOKE_KEEP=1 scripts/smoke.sh
+#   Keep state: ARTX_SMOKE_KEEP=1 scripts/smoke.sh
 #
 # The Markdown written into the vault stays in Chinese on purpose: multi-byte
 # text is where byte-offset anchoring breaks, so the fixture doubles as UTF-8
@@ -16,10 +16,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ART="${ART_BIN:-$ROOT/bin/art}"
+ARTX="${ARTX_BIN:-$ROOT/bin/artx}"
 
-if [[ ! -x "$ART" ]]; then
-  echo "no executable at ${ART}; run make build first" >&2
+if [[ ! -x "$ARTX" ]]; then
+  echo "no executable at ${ARTX}; run make build first" >&2
   exit 1
 fi
 if [[ ! -f "$ROOT/web/scripts/browser-smoke.mjs" ]]; then
@@ -38,7 +38,7 @@ cleanup() {
     kill "$SERVE_PID" 2>/dev/null || true
     wait "$SERVE_PID" 2>/dev/null || true
   fi
-  if [[ "${ART_SMOKE_KEEP:-}" == "1" ]]; then
+  if [[ "${ARTX_SMOKE_KEEP:-}" == "1" ]]; then
     echo "state kept in $WORK"
   else
     rm -rf "$WORK"
@@ -63,12 +63,12 @@ wait_for() {
 PORT="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')"
 BASE="http://127.0.0.1:$PORT"
 
-echo "art smoke: binary ${ART}, temp vault ${VAULT}, port $PORT"
+echo "artx smoke: binary ${ARTX}, temp vault ${VAULT}, port $PORT"
 
 mkdir -p "$VAULT"
-"$ART" init "$VAULT" >"$WORK/init.log" 2>&1 || { cat "$WORK/init.log" >&2; fail "init failed"; }
+"$ARTX" init "$VAULT" >"$WORK/init.log" 2>&1 || { cat "$WORK/init.log" >&2; fail "init failed"; }
 
-NEW="$("$ART" --vault "$VAULT" new checkout-flow --type md --title '结算流程' --json)"
+NEW="$("$ARTX" --vault "$VAULT" new checkout-flow --type md --title '结算流程' --json)"
 DOC="$(printf '%s' "$NEW" | jget 'd["id"]')"
 MD="$(printf '%s' "$NEW" | jget 'd["path"]')"
 
@@ -94,7 +94,7 @@ $TARGET
 > 备注：三级标题下的有序列表是之前崩页的组合。
 EOF
 
-"$ART" --vault "$VAULT" serve --port "$PORT" >"$WORK/serve.log" 2>&1 &
+"$ARTX" --vault "$VAULT" serve --port "$PORT" >"$WORK/serve.log" 2>&1 &
 SERVE_PID=$!
 wait_for 20 curl -sf "$BASE/api/health" || { cat "$WORK/serve.log" >&2; fail "serve failed to start"; }
 
@@ -138,4 +138,4 @@ REPLIES="$(curl -s "$BASE/api/docs/$DOC/comments" | jget 'json.dumps(d["threads"
 echo "scenario ready: doc ${DOC}, reply-less thread ${THREAD}, replies=[]"
 
 cd "$ROOT/web"
-ART_SMOKE_URL="$BASE" node scripts/browser-smoke.mjs
+ARTX_SMOKE_URL="$BASE" node scripts/browser-smoke.mjs

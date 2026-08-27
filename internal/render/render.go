@@ -27,7 +27,7 @@ import (
 
 	"github.com/yuin/goldmark/parser"
 
-	"github.com/six-ddc/art/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/mdsrc"
 )
 
 // Result is the output of a single render.

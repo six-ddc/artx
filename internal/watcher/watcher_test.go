@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/htmlaid"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/htmlaid"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 func TestIgnore(t *testing.T) {
@@ -22,8 +22,8 @@ func TestIgnore(t *testing.T) {
 		want bool
 		why  string
 	}{
-		{"/vault/.art/comments/a7f3k2.yaml", true, "comment files are owned by serve's single writer"},
-		{"/vault/.art/serve.lock", true, "the whole .art directory is ignored"},
+		{"/vault/.artx/comments/a7f3k2.yaml", true, "comment files are owned by serve's single writer"},
+		{"/vault/.artx/serve.lock", true, "the whole .art directory is ignored"},
 		{"/vault/.art", true, "the .art directory itself"},
 		{"/vault/.git/index", true, "git internal file"},
 		{"/vault/.git/refs/heads/main", true, "git internal file"},
@@ -453,6 +453,6 @@ func TestRunIgnoresArtDir(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	if touched != 0 {
-		t.Fatalf("changes under .art/ should never reach processing, but it fired %d times", touched)
+		t.Fatalf("changes under .artx/ should never reach processing, but it fired %d times", touched)
 	}
 }

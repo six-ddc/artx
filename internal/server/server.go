@@ -1,4 +1,4 @@
-// Package server implements art serve: HTTP routing, SSE, auth, and
+// Package server implements artx serve: HTTP routing, SSE, auth, and
 // single-writer serialization.
 //
 // Owned by: W-serve.
@@ -29,14 +29,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/lockfile"
-	"github.com/six-ddc/art/internal/remap"
-	"github.com/six-ddc/art/internal/render"
-	"github.com/six-ddc/art/internal/vault"
-	"github.com/six-ddc/art/internal/version"
-	"github.com/six-ddc/art/internal/watcher"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/lockfile"
+	"github.com/six-ddc/artx/internal/remap"
+	"github.com/six-ddc/artx/internal/render"
+	"github.com/six-ddc/artx/internal/vault"
+	"github.com/six-ddc/artx/internal/version"
+	"github.com/six-ddc/artx/internal/watcher"
 )
 
 // Options configures a single serve run.
@@ -137,7 +137,7 @@ func isLoopbackHost(host string) bool {
 // Run starts listening and blocks until ctx is canceled.
 //
 // Startup sequence:
-//  1. lockfile.AcquireServe claims .art/serve.lock (errors out if a serve is
+//  1. lockfile.AcquireServe claims .artx/serve.lock (errors out if a serve is
 //     already running)
 //  2. bind the port and write the actual port back to serve.lock
 //  3. start the writer goroutine and the SSE hub
@@ -200,14 +200,14 @@ func (s *Server) Run(ctx context.Context) error {
 			// Failing silently here would let /api/health lie about watch:true
 			// while the whole remap pipeline is actually dead.
 			s.watchFailed.Store(true)
-			log.Printf("art: watcher failed to start, auto-remap unavailable: %v", err)
+			log.Printf("artx: watcher failed to start, auto-remap unavailable: %v", err)
 		} else {
 			s.mu.Lock()
 			s.wch = wch
 			s.mu.Unlock()
 			go func() { _ = wch.Run(runCtx) }()
 			go func() { _, _ = wch.ProcessAll(runCtx) }()
-			log.Printf("art: watcher started (vault %s)", s.opts.Vault.Root)
+			log.Printf("artx: watcher started (vault %s)", s.opts.Vault.Root)
 		}
 	}
 
@@ -279,7 +279,7 @@ func (s *Server) BaseURL() string {
 //	GET  /api/stream                  SSE
 //	GET  /raw/{id}/                   html artifact entry point, reviewer script injected
 //	GET  /raw/{id}/{path...}          artifact's sibling static assets
-//	GET  /_art/{path...}              embedded frontend assets (Vite base = /_art/)
+//	GET  /_artx/{path...}              embedded frontend assets (Vite base = /_artx/)
 //	GET  /                            SPA shell
 //	GET  /a/{id}                      SPA shell (client-side routing)
 //	GET  /{path...}                   anything non-/api falls back to index.html
@@ -297,7 +297,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/compact", s.handleCompact)
 	mux.HandleFunc("GET /api/stream", s.hub.ServeHTTP)
 	mux.HandleFunc("GET /raw/{id}/{path...}", s.handleRaw)
-	mux.Handle("GET /_art/", s.artAssetsHandler())
+	mux.Handle("GET /_artx/", s.artAssetsHandler())
 	mux.HandleFunc("GET /", s.handleSPA)
 
 	var h http.Handler = mux

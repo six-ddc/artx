@@ -2,7 +2,7 @@
 // assigning ids, and assembling api DTOs.
 //
 // Owned by W-core. Both CLI commands and HTTP handlers go through it, which
-// keeps art list and GET /api/docs returning field-for-field identical
+// keeps artx list and GET /api/docs returning field-for-field identical
 // content.
 package vault
 
@@ -16,19 +16,19 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/six-ddc/art/internal/anchor"
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/config"
-	"github.com/six-ddc/art/internal/eventlog"
-	"github.com/six-ddc/art/internal/gitx"
-	"github.com/six-ddc/art/internal/idgen"
-	"github.com/six-ddc/art/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/anchor"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/config"
+	"github.com/six-ddc/artx/internal/eventlog"
+	"github.com/six-ddc/artx/internal/gitx"
+	"github.com/six-ddc/artx/internal/idgen"
+	"github.com/six-ddc/artx/internal/mdsrc"
 )
 
 // Directory and file name constants.
 const (
-	ArtDir     = ".art"
-	AssetsDir  = ".art/assets"
+	ArtDir     = ".artx"
+	AssetsDir  = ".artx/assets"
 	AgentsFile = "AGENTS.md"
 	IndexMD    = "index.md"
 	IndexHTML  = "index.html"
@@ -100,7 +100,7 @@ func Discover(explicit string) (*Vault, error) {
 	return Open(root, name)
 }
 
-// Init sets up a new vault at dir: directory skeleton, .art/config.yaml,
+// Init sets up a new vault at dir: directory skeleton, .artx/config.yaml,
 // .gitattributes, the AGENTS.md template, git init, and a global registry
 // entry. Idempotent if dir is already a vault.
 func Init(ctx context.Context, dir, name string) (*Vault, error) {
@@ -153,16 +153,16 @@ func Init(ctx context.Context, dir, name string) (*Vault, error) {
 
 	// Commit the skeleton we just created.
 	//
-	// .gitattributes in particular sets merge=union on .art/comments/*.yaml,
+	// .gitattributes in particular sets merge=union on .artx/comments/*.yaml,
 	// which is the entire mechanism behind "remote = git" multi-machine
 	// convergence — if it never lands in the repo, that convergence simply
 	// doesn't happen. The watcher's auto-commit only covers the artifact
-	// directories plus .art/comments, so it never picks up these root-level
+	// directories plus .artx/comments, so it never picks up these root-level
 	// files; init has to commit them itself.
 	if repo := gitx.Open(abs); repo.Available() {
 		_, _ = repo.Commit(ctx, gitx.CommitOptions{
-			Message: "art: init vault " + name,
-			Author:  gitx.AuthorArt,
+			Message: "artx: init vault " + name,
+			Author:  gitx.AuthorArtx,
 			Paths:   []string{".gitattributes", ".gitignore", AgentsFile, config.VaultConfigPath},
 		})
 	}
@@ -187,7 +187,7 @@ type Artifact struct {
 // any starting with a dot); a directory containing index.md is type md, one
 // containing index.html is type html, and md wins if both are present. The
 // id is read from frontmatter aid / <meta name="aid">; when missing it is
-// **not** auto-filled (that's the job of art doctor or the watcher) —
+// **not** auto-filled (that's the job of artx doctor or the watcher) —
 // Artifact.ID is left empty and counted as a warning.
 func (v *Vault) Scan() ([]Artifact, error) {
 	entries, err := os.ReadDir(v.Root)
@@ -378,8 +378,8 @@ func (v *Vault) New(slug, typ, title string) (*Artifact, error) {
 	// installed on this machine); creation itself is unaffected.
 	if v.Git != nil && v.Git.Available() {
 		_, _ = v.Git.Commit(context.Background(), gitx.CommitOptions{
-			Message: "art: new " + slug,
-			Author:  gitx.AuthorArt,
+			Message: "artx: new " + slug,
+			Author:  gitx.AuthorArtx,
 			Paths:   []string{rel},
 		})
 	}
@@ -499,7 +499,7 @@ func (v *Vault) Doc(ctx context.Context, a *Artifact, baseURL string) (api.Doc, 
 
 // Threads returns a document's folded threads, with Doc/Slug/Path and
 // anchor-derived fields already filled in. This is the shared entry point
-// for both art comments and GET /api/docs/{id}/comments.
+// for both artx comments and GET /api/docs/{id}/comments.
 func (v *Vault) Threads(ctx context.Context, a *Artifact) (*api.CommentsResponse, error) {
 	fold, err := v.Store.Threads(a.ID)
 	if err != nil {
@@ -524,7 +524,7 @@ func (v *Vault) Threads(ctx context.Context, a *Artifact) (*api.CommentsResponse
 	return &api.CommentsResponse{Doc: a.ID, Threads: threads, Warnings: fold.Warnings}, nil
 }
 
-// AllThreads returns threads across all documents, for art comments when
+// AllThreads returns threads across all documents, for artx comments when
 // --doc is not given. An empty status means all threads; otherwise it
 // filters by an api.Status* value.
 func (v *Vault) AllThreads(ctx context.Context, status string) ([]api.Thread, error) {
@@ -598,12 +598,12 @@ func (v *Vault) FindThread(ctx context.Context, threadRef string) (*Artifact, *a
 	return nil, nil, ErrNotFound
 }
 
-// Author returns the current commenter identity: vault config Author > $ART_AUTHOR > $USER.
+// Author returns the current commenter identity: vault config Author > $ARTX_AUTHOR > $USER.
 func (v *Vault) Author() string {
 	if v.Cfg != nil && v.Cfg.Author != "" {
 		return v.Cfg.Author
 	}
-	if a := os.Getenv("ART_AUTHOR"); a != "" {
+	if a := os.Getenv("ARTX_AUTHOR"); a != "" {
 		return a
 	}
 	if u := os.Getenv("USER"); u != "" {
@@ -612,15 +612,15 @@ func (v *Vault) Author() string {
 	return "unknown"
 }
 
-// AgentsTemplate is the AGENTS.md content that art init writes (design doc §10, verbatim).
+// AgentsTemplate is the AGENTS.md content that artx init writes (design doc §10, verbatim).
 func AgentsTemplate() []byte {
 	return []byte(`# This project's deliverables are published via art
 
-- When producing a proposal/demo: run ` + "`art new <slug> --type md|html --json`" + ` to get a
+- When producing a proposal/demo: run ` + "`artx new <slug> --type md|html --json`" + ` to get a
   path, then write the content there yourself with your own file tools; your reply
   must include the returned url.
-- At the start of a session run ` + "`art comments --open --json`" + `, and handle each thread:
-  edit the doc → ` + "`art reply <thread> \"<explanation>\"`" + ` → ` + "`art addressed <thread> --commit <sha>`" + `.
+- At the start of a session run ` + "`artx comments --open --json`" + `, and handle each thread:
+  edit the doc → ` + "`artx reply <thread> \"<explanation>\"`" + ` → ` + "`artx addressed <thread> --commit <sha>`" + `.
   Never resolve threads yourself — resolving is for the human.
 - For threads in orphan status: confirm whether the original concern was addressed, then
   reply with an explanation and ask the human to confirm.

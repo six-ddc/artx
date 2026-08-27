@@ -1,7 +1,7 @@
 // Package version holds version information injected at build time.
 package version
 
-// Version is injected via ldflags: -X github.com/six-ddc/art/internal/version.Version=v0.1.0
+// Version is injected via ldflags: -X github.com/six-ddc/artx/internal/version.Version=v0.1.0
 var Version = "dev"
 
 // Commit is injected via ldflags.

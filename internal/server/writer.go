@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/six-ddc/art/internal/eventlog"
+	"github.com/six-ddc/artx/internal/eventlog"
 )
 
 // eventAppender is the minimal surface of eventlog.Store that Writer

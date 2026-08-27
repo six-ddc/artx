@@ -1,6 +1,6 @@
 SHELL := /bin/bash
-BIN   := bin/art
-PKG   := github.com/six-ddc/art
+BIN   := bin/artx
+PKG   := github.com/six-ddc/artx
 VERSION ?= dev
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 LDFLAGS := -X $(PKG)/internal/version.Version=$(VERSION) -X $(PKG)/internal/version.Commit=$(COMMIT)
@@ -12,7 +12,7 @@ PLACEHOLDER := scripts/placeholder.html
 
 all: build
 
-## build: build the frontend, then compile the binary (release path); produces ./bin/art
+## build: build the frontend, then compile the binary (release path); produces ./bin/artx
 build: web go-build
 
 ## web: build the frontend with pnpm and sync all of web/dist into the embed directory
@@ -25,7 +25,7 @@ web:
 ## go-build: compile Go only, using whatever $(DIST) currently holds (possibly the placeholder)
 go-build:
 	mkdir -p bin
-	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/art
+	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/artx
 
 ## placeholder: restore the embed directory to the placeholder page. Useful for
 ## working without a frontend toolchain, and for cleaning the tree after
@@ -37,7 +37,7 @@ placeholder:
 
 ## dev: backend on :7777; the vite dev server proxies /api and /raw to it
 dev:
-	@echo "terminal 1: go run ./cmd/art serve"
+	@echo "terminal 1: go run ./cmd/artx serve"
 	@echo "terminal 2: cd web && pnpm dev"
 
 test:

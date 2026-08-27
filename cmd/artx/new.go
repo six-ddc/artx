@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
+	"github.com/six-ddc/artx/internal/api"
 )
 
-// newNewCmd implements art new <slug> --type md|html (W-core).
+// newNewCmd implements artx new <slug> --type md|html (W-core).
 //
 // Outputs api.NewDocResponse: {"id","path","url","slug","type"}. The CLI does
 // not do content I/O — once the agent has the path, it writes content with

@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/eventlog"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/eventlog"
 )
 
-// newAddressedCmd implements art addressed <thread> [--commit sha] (W-core).
+// newAddressedCmd implements artx addressed <thread> [--commit sha] (W-core).
 // When --commit is omitted and the vault is under git, it automatically uses
 // the current HEAD.
 func newAddressedCmd() *cobra.Command {

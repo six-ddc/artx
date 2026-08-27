@@ -14,14 +14,14 @@ import (
 )
 
 // GlobalDir and GlobalFile together form the path relative to the user's
-// config directory: ~/.config/art/config.yaml.
+// config directory: ~/.config/artx/config.yaml.
 const (
-	GlobalDir  = "art"
+	GlobalDir  = "artx"
 	GlobalFile = "config.yaml"
 )
 
 // VaultConfigPath is the vault config path relative to the vault root.
-const VaultConfigPath = ".art/config.yaml"
+const VaultConfigPath = ".artx/config.yaml"
 
 // ErrNoVault indicates the current context could not determine a vault.
 var ErrNoVault = errors.New("config: no vault found")
@@ -29,13 +29,13 @@ var ErrNoVault = errors.New("config: no vault found")
 // ErrVaultNotRegistered indicates the registry has no vault by that name.
 var ErrVaultNotRegistered = errors.New("config: vault not registered")
 
-// Global is the content of ~/.config/art/config.yaml.
+// Global is the content of ~/.config/artx/config.yaml.
 type Global struct {
 	DefaultVault string            `yaml:"default_vault,omitempty"`
 	Vaults       map[string]string `yaml:"vaults,omitempty"` // name -> absolute path (supports ~ expansion)
 }
 
-// Vault is the content of <vault>/.art/config.yaml.
+// Vault is the content of <vault>/.artx/config.yaml.
 type Vault struct {
 	Name       string `yaml:"name,omitempty"`
 	Port       int    `yaml:"port,omitempty"`        // default 7777
@@ -66,7 +66,7 @@ const (
 )
 
 // GlobalFilePath returns the absolute path to the global registry:
-// ~/.config/art/config.yaml (honoring XDG_CONFIG_HOME, falling back to
+// ~/.config/artx/config.yaml (honoring XDG_CONFIG_HOME, falling back to
 // ~/.config when unset, regardless of platform — design doc §4 pins this
 // path deliberately and does not use macOS's ~/Library/Application Support).
 func GlobalFilePath() (string, error) {
@@ -208,8 +208,8 @@ func (v *Vault) Debounce() time.Duration {
 
 // Resolve decides which vault the current command applies to, by priority:
 //  1. an explicit flag (--vault <name|path>, i.e. the explicit parameter)
-//  2. the ART_VAULT environment variable
-//  3. an upward search from cwd for a directory containing .art/
+//  2. the ARTX_VAULT environment variable
+//  3. an upward search from cwd for a directory containing .artx/
 //  4. the registry's default_vault
 //
 // It returns the vault's absolute path and its name in the registry (falling
@@ -238,7 +238,7 @@ func Resolve(explicit, cwd string) (root, name string, err error) {
 
 	candidate := explicit
 	if candidate == "" {
-		candidate = os.Getenv("ART_VAULT")
+		candidate = os.Getenv("ARTX_VAULT")
 	}
 	if candidate != "" {
 		if root, name, ok := resolveRegistered(candidate); ok {
@@ -264,7 +264,7 @@ func Resolve(explicit, cwd string) (root, name string, err error) {
 	return "", "", ErrNoVault
 }
 
-// FindRoot searches upward from dir for a directory containing .art/.
+// FindRoot searches upward from dir for a directory containing .artx/.
 func FindRoot(dir string) (string, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -272,7 +272,7 @@ func FindRoot(dir string) (string, error) {
 	}
 	cur := abs
 	for {
-		info, statErr := os.Stat(filepath.Join(cur, ".art"))
+		info, statErr := os.Stat(filepath.Join(cur, ".artx"))
 		if statErr == nil && info.IsDir() {
 			return cur, nil
 		}

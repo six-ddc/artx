@@ -42,7 +42,7 @@ func TestInitCommitAndLog(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	sha, err := r.Commit(ctx, CommitOptions{Message: "first", Author: AuthorArt})
+	sha, err := r.Commit(ctx, CommitOptions{Message: "first", Author: AuthorArtx})
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestInitCommitAndLog(t *testing.T) {
 	}
 
 	// No-op commit: no changes staged, should return "" and no error.
-	sha2, err := r.Commit(ctx, CommitOptions{Message: "noop", Author: AuthorArt})
+	sha2, err := r.Commit(ctx, CommitOptions{Message: "noop", Author: AuthorArtx})
 	if err != nil {
 		t.Fatalf("Commit (noop): %v", err)
 	}
@@ -199,7 +199,7 @@ func TestCommitWithoutGitIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sha, err := r.Commit(ctx, CommitOptions{Message: "art: test", Author: AuthorArt})
+	sha, err := r.Commit(ctx, CommitOptions{Message: "artx: test", Author: AuthorArtx})
 	if err != nil {
 		t.Fatalf("Commit failed without a git identity configured: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestCommitWithoutGitIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(out); got != "art|art@localhost|art|art@localhost" {
-		t.Errorf("author/committer identity = %q, want art|art@localhost|art|art@localhost", got)
+	if got := strings.TrimSpace(out); got != "artx|artx@localhost|artx|artx@localhost" {
+		t.Errorf("author/committer identity = %q, want artx|artx@localhost|artx|artx@localhost", got)
 	}
 }

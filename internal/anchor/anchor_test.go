@@ -5,8 +5,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/mdsrc"
 )
 
 // Covers the three block structures most prone to bugs: inline markup,

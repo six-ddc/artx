@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/api"
-	"github.com/six-ddc/art/internal/client"
-	"github.com/six-ddc/art/internal/vault"
+	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/client"
+	"github.com/six-ddc/artx/internal/vault"
 )
 
 // newTestVault creates a fresh, isolated vault (own global registry) for CLI
@@ -20,7 +20,7 @@ import (
 func newTestVault(t *testing.T) string {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ART_VAULT", "")
+	t.Setenv("ARTX_VAULT", "")
 	dir := t.TempDir()
 	if _, err := vault.Init(context.Background(), dir, "test"); err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func captureStdout(t *testing.T, fn func()) string {
 }
 
 // TestDoctorExitCodeReflectsUnresolvedIssues is the MINOR-3 regression test:
-// `art doctor` must exit non-zero when it finds an issue it did not (or
+// `artx doctor` must exit non-zero when it finds an issue it did not (or
 // could not) fix, and exit zero once the vault is clean.
 func TestDoctorExitCodeReflectsUnresolvedIssues(t *testing.T) {
 	dir := newTestVault(t)

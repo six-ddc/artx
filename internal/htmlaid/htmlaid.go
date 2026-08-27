@@ -22,7 +22,7 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/six-ddc/art/internal/idgen"
+	"github.com/six-ddc/artx/internal/idgen"
 )
 
 // AIDAttr is the name of the element anchor attribute.
@@ -30,8 +30,8 @@ const AIDAttr = "data-aid"
 
 // ReviewerScriptPath is the URL of the reviewer script injected into the
 // iframe (served via embed on the serve side).
-// The /_art/ prefix keeps it fully isolated from vault content paths.
-const ReviewerScriptPath = "/_art/reviewer.js"
+// The /_artx/ prefix keeps it fully isolated from vault content paths.
+const ReviewerScriptPath = "/_artx/reviewer.js"
 
 // BlockTags is the set of tags that get a data-aid assigned.
 // Keep this list stable: changing it causes existing documents to be

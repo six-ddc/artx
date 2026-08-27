@@ -7,7 +7,7 @@
 # script is repeatable; on success the last line is E2E PASS.
 #
 #   Usage:      make build && scripts/e2e.sh
-#   Keep state: ART_E2E_KEEP=1 scripts/e2e.sh
+#   Keep state: ARTX_E2E_KEEP=1 scripts/e2e.sh
 #
 # The Markdown and HTML this script writes into the vault stays in Chinese on
 # purpose: multi-byte text is exactly where byte-offset anchoring breaks, so
@@ -16,10 +16,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ART="${ART_BIN:-$ROOT/bin/art}"
+ARTX="${ARTX_BIN:-$ROOT/bin/artx}"
 
-if [[ ! -x "$ART" ]]; then
-  echo "no executable at ${ART}; run make build first" >&2
+if [[ ! -x "$ARTX" ]]; then
+  echo "no executable at ${ARTX}; run make build first" >&2
   exit 1
 fi
 
@@ -36,7 +36,7 @@ cleanup() {
     kill "$SERVE_PID" 2>/dev/null || true
     wait "$SERVE_PID" 2>/dev/null || true
   fi
-  if [[ "${ART_E2E_KEEP:-}" == "1" ]]; then
+  if [[ "${ARTX_E2E_KEEP:-}" == "1" ]]; then
     echo "state kept in $WORK"
   else
     rm -rf "$WORK"
@@ -76,13 +76,13 @@ free_port() {
   python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()'
 }
 
-art() { "$ART" --vault "$VAULT" "$@"; }
+artx() { "$ARTX" --vault "$VAULT" "$@"; }
 
 PORT="$(free_port)"
 BASE="http://127.0.0.1:$PORT"
 
 start_serve() {
-  "$ART" --vault "$VAULT" serve --port "$PORT" >"$WORK/serve.log" 2>&1 &
+  "$ARTX" --vault "$VAULT" serve --port "$PORT" >"$WORK/serve.log" 2>&1 &
   SERVE_PID=$!
   wait_for 20 curl -sf "$BASE/api/health" || {
     cat "$WORK/serve.log" >&2
@@ -97,33 +97,33 @@ stop_serve() {
   SERVE_PID=""
 }
 
-echo "art e2e: binary ${ART}, temp vault ${VAULT}, port $PORT"
+echo "artx e2e: binary ${ARTX}, temp vault ${VAULT}, port $PORT"
 
 # ---------------------------------------------------------------------------
-step "art init creates a vault"
+step "artx init creates a vault"
 # ---------------------------------------------------------------------------
 mkdir -p "$VAULT"
-"$ART" init "$VAULT" >"$WORK/init.log" 2>&1 || { cat "$WORK/init.log" >&2; fail "init failed"; }
-[[ -f "$VAULT/.art/config.yaml" ]] || fail "missing .art/config.yaml"
+"$ARTX" init "$VAULT" >"$WORK/init.log" 2>&1 || { cat "$WORK/init.log" >&2; fail "init failed"; }
+[[ -f "$VAULT/.artx/config.yaml" ]] || fail "missing .artx/config.yaml"
 [[ -d "$VAULT/.git" ]] || fail "init did not create a git repository"
-ok "vault ready (.art/config.yaml + git)"
+ok "vault ready (.artx/config.yaml + git)"
 
-# .art/serve.lock holds the --token in plaintext so local CLI calls need no
+# .artx/serve.lock holds the --token in plaintext so local CLI calls need no
 # configuration. The watcher's auto-commit stages paths, and a user running
 # `git add -A` stages everything, so the only thing keeping that token out of
 # git history is this ignore rule. Assert the rule exists AND that git really
 # honours it, rather than trusting the file's contents.
-assert_grep "$VAULT/.gitignore" '^\.art/serve\.lock$' "vault .gitignore ignores .art/serve.lock"
-mkdir -p "$VAULT/.art" && : >"$VAULT/.art/serve.lock"
-[[ -z "$(git -C "$VAULT" status --porcelain -uall -- .art/serve.lock)" ]] \
-  || fail "git still sees .art/serve.lock, so the token could be committed"
-rm -f "$VAULT/.art/serve.lock"
-ok "git does not track .art/serve.lock (the token cannot leak into history)"
+assert_grep "$VAULT/.gitignore" '^\.artx/serve\.lock$' "vault .gitignore ignores .artx/serve.lock"
+mkdir -p "$VAULT/.art" && : >"$VAULT/.artx/serve.lock"
+[[ -z "$(git -C "$VAULT" status --porcelain -uall -- .artx/serve.lock)" ]] \
+  || fail "git still sees .artx/serve.lock, so the token could be committed"
+rm -f "$VAULT/.artx/serve.lock"
+ok "git does not track .artx/serve.lock (the token cannot leak into history)"
 
 # ---------------------------------------------------------------------------
-step "art new creates an md artifact; write multi-block content into it"
+step "artx new creates an md artifact; write multi-block content into it"
 # ---------------------------------------------------------------------------
-NEW_MD="$(art new payment-refactor --type md --title '支付重构' --json)"
+NEW_MD="$(artx new payment-refactor --type md --title '支付重构' --json)"
 MD_ID="$(printf '%s' "$NEW_MD" | jget 'd["id"]')"
 MD_PATH="$(printf '%s' "$NEW_MD" | jget 'd["path"]')"
 [[ -n "$MD_ID" && -f "$MD_PATH" ]] || fail "new md produced no file"
@@ -169,12 +169,12 @@ assert_eq "$(printf '%s' "$DOCS" | jget '[x["id"] for x in d["docs"]].count("'"$
 # make build should additionally serve reviewer.js.
 SHELL_HTML="$(curl -s "$BASE/")"
 [[ -n "$SHELL_HTML" ]] || fail "GET / returned no SPA shell"
-if grep -q 'art-dist-placeholder' <<<"$SHELL_HTML"; then
+if grep -q 'artx-dist-placeholder' <<<"$SHELL_HTML"; then
   ok "SPA shell is the placeholder page (binary built without make build; expected in dev)"
 else
   ok "SPA shell is the real frontend build"
-  CODE="$(curl -s -o /dev/null -w '%{http_code}' "$BASE/_art/reviewer.js")"
-  assert_eq "$CODE" "200" "GET /_art/reviewer.js is served from the embed"
+  CODE="$(curl -s -o /dev/null -w '%{http_code}' "$BASE/_artx/reviewer.js")"
+  assert_eq "$CODE" "200" "GET /_artx/reviewer.js is served from the embed"
 fi
 
 # The watcher's startup ProcessAll auto-commits what we just wrote; that sha
@@ -239,10 +239,10 @@ A_END="$(printf '%s' "$CMTS" | jget 'd["threads"][0]["anchor"]["end"]')"
 ok "anchor offsets [$A_START,$A_END)"
 
 # ---------------------------------------------------------------------------
-step "art comments --open --json exposes every field an agent needs"
+step "artx comments --open --json exposes every field an agent needs"
 # ---------------------------------------------------------------------------
-art comments --open --json >"$WORK/comments-open.json"
-python3 - "$WORK/comments-open.json" "$THREAD" <<'PY' || fail "art comments --open --json is missing fields"
+artx comments --open --json >"$WORK/comments-open.json"
+python3 - "$WORK/comments-open.json" "$THREAD" <<'PY' || fail "artx comments --open --json is missing fields"
 import json, sys
 threads = json.load(open(sys.argv[1]))
 if isinstance(threads, dict):
@@ -262,9 +262,9 @@ print("     ok  path/line/start/end/quote(exact)/context all present, status=%s"
 PY
 
 # ---------------------------------------------------------------------------
-step "art reply / art addressed route through serve (proven via SSE)"
+step "artx reply / artx addressed route through serve (proven via SSE)"
 # ---------------------------------------------------------------------------
-# The watcher ignores .art/, so a `comments` SSE event can only come from
+# The watcher ignores .artx/, so a `comments` SSE event can only come from
 # serve's own write path. Receiving one proves the CLI routed through serve
 # instead of writing the file directly.
 : >"$WORK/sse.log"
@@ -272,13 +272,13 @@ curl -sN "$BASE/api/stream" >"$WORK/sse.log" 2>/dev/null &
 SSE_PID=$!
 sleep 0.6
 
-art reply "$THREAD" "已精简，幂等键规则合并进第 2 节" >/dev/null
-art addressed "$THREAD" --note "见 commit" >/dev/null
+artx reply "$THREAD" "已精简，幂等键规则合并进第 2 节" >/dev/null
+artx addressed "$THREAD" --note "见 commit" >/dev/null
 
 wait_for 15 grep -q "event: comments" "$WORK/sse.log" \
   || { cat "$WORK/sse.log" >&2; fail "CLI write produced no SSE, so it did not go through serve"; }
 ok "received a comments SSE event: CLI-to-API routing confirmed"
-[[ -f "$VAULT/.art/serve.lock" ]] || fail "missing .art/serve.lock"
+[[ -f "$VAULT/.artx/serve.lock" ]] || fail "missing .artx/serve.lock"
 ok "serve.lock present (what the CLI probes for)"
 kill "$SSE_PID" 2>/dev/null || true; SSE_PID=""
 
@@ -306,7 +306,7 @@ CMTS="$(curl -s "$BASE/api/docs/$MD_ID/comments")"
 assert_eq "$(printf '%s' "$CMTS" | jget 'd["threads"][0]["anchor"]["start"]')" "$((A_START + SHIFT))" "start shifted correctly after remap"
 assert_eq "$(printf '%s' "$CMTS" | jget 'd["threads"][0]["anchor"]["end"]')" "$((A_END + SHIFT))" "end shifted correctly after remap"
 assert_eq "$(printf '%s' "$CMTS" | jget 'd["threads"][0]["anchor"]["exact"]')" "$SEL_EXACT" "exact is unchanged after remap"
-assert_grep "$VAULT/.art/comments/$MD_ID.yaml" "e: remap" "a remap event appears in the event log"
+assert_grep "$VAULT/.artx/comments/$MD_ID.yaml" "e: remap" "a remap event appears in the event log"
 
 # ---------------------------------------------------------------------------
 step "delete the commented paragraph; the thread must orphan and keep last_exact"
@@ -340,31 +340,31 @@ PY
 API_HINT="$(printf '%s' "$CMTS" | jget 'd["threads"][0].get("hint", "")')"
 assert_ne "$API_HINT" "" "orphan thread carries the fixed hint"
 assert_eq "$API_HINT" "$TS_HINT" "api.OrphanHint matches web ORPHAN_HINT byte for byte"
-assert_grep "$VAULT/.art/comments/$MD_ID.yaml" "e: orphan" "an orphan event appears in the event log"
+assert_grep "$VAULT/.artx/comments/$MD_ID.yaml" "e: orphan" "an orphan event appears in the event log"
 
 # ---------------------------------------------------------------------------
-step "curl POST resolve; art comments --all then shows resolved"
+step "curl POST resolve; artx comments --all then shows resolved"
 # ---------------------------------------------------------------------------
 RESOLVE_RES="$(curl -s -X POST "$BASE/api/docs/$MD_ID/events" -H 'Content-Type: application/json' \
   -d "$(python3 -c 'import json,sys;print(json.dumps({"type":"resolve","thread":sys.argv[1]}))' "$THREAD")")"
 assert_eq "$(printf '%s' "$RESOLVE_RES" | jget 'd["ok"]')" "ok" "POST resolve succeeded"
 
-art comments --all --json >"$WORK/comments-all.json"
+artx comments --all --json >"$WORK/comments-all.json"
 assert_eq "$(jget 'next(x["status"] for x in (d if isinstance(d,list) else d["threads"]) if x["thread"]=="'"$THREAD"'")' <"$WORK/comments-all.json")" \
-  "resolved" "art comments --all shows resolved"
+  "resolved" "artx comments --all shows resolved"
 
 # ---------------------------------------------------------------------------
-step "art new html; the watcher injects data-aid and restores meta aid"
+step "artx new html; the watcher injects data-aid and restores meta aid"
 # ---------------------------------------------------------------------------
-NEW_HTML="$(art new demo-page --type html --title '演示页' --json)"
+NEW_HTML="$(artx new demo-page --type html --title '演示页' --json)"
 HTML_ID="$(printf '%s' "$NEW_HTML" | jget 'd["id"]')"
 HTML_PATH="$(printf '%s' "$NEW_HTML" | jget 'd["path"]')"
 ok "html artifact id=$HTML_ID"
 git -C "$VAULT" log --oneline -- demo-page/index.html | grep -q . \
-  || fail "art new did not commit the skeleton, so the watcher cannot recover the id"
-ok "art new committed the aid-bearing skeleton to git"
+  || fail "artx new did not commit the skeleton, so the watcher cannot recover the id"
+ok "artx new committed the aid-bearing skeleton to git"
 
-# From an agent's point of view: overwrite the whole file right after art new,
+# From an agent's point of view: overwrite the whole file right after artx new,
 # with neither a meta aid nor any element data-aid. This is the ordering most
 # likely to lose the document id, so the watcher has to recover it from the
 # skeleton that was just committed.
@@ -390,7 +390,7 @@ assert_grep "$HTML_PATH" 'data-aid' "data-aid was injected into the source file"
 assert_grep "$HTML_PATH" "content=\"$HTML_ID\"" "meta aid=$HTML_ID was recovered (overwritten before the first commit)"
 
 RAW="$(curl -s "$BASE/raw/$HTML_ID/")"
-assert_grep <(printf '%s' "$RAW") '/_art/reviewer.js' "GET /raw/{id}/ has the reviewer script injected"
+assert_grep <(printf '%s' "$RAW") '/_artx/reviewer.js' "GET /raw/{id}/ has the reviewer script injected"
 
 AID="$(printf '%s' "$RAW" | python3 -c '
 import sys, re
@@ -455,16 +455,16 @@ CODE="$(curl -s --path-as-is -o /dev/null -w '%{http_code}' "$BASE/raw/$HTML_ID/
 assert_eq "$CODE" "404" "GET /raw/{id}/../../etc/passwd returns 404"
 
 # ---------------------------------------------------------------------------
-step "art compact --force collapses edit/remap chains and archives aged resolved threads"
+step "artx compact --force collapses edit/remap chains and archives aged resolved threads"
 # ---------------------------------------------------------------------------
-art compact --force --json >"$WORK/compact.json" 2>&1 || { cat "$WORK/compact.json" >&2; fail "compact failed"; }
+artx compact --force --json >"$WORK/compact.json" 2>&1 || { cat "$WORK/compact.json" >&2; fail "compact failed"; }
 assert_eq "$(jget 'str(any(s["events_after"] < s["events_before"] for s in d["stats"]))' <"$WORK/compact.json")" \
   "True" "compact collapsed the event chain"
 
 # Archiving only takes threads that are resolved AND older than ResolvedAge
 # (30 days); --force skips the size threshold only (blueprint §4.6). Backdate
 # every timestamp in the log by 40 days so the archive path is reachable.
-python3 - "$VAULT/.art/comments/$MD_ID.yaml" <<'PY'
+python3 - "$VAULT/.artx/comments/$MD_ID.yaml" <<'PY'
 import re, sys
 from datetime import datetime, timedelta
 path = sys.argv[1]
@@ -474,13 +474,13 @@ def back(m):
     return "ts: " + (ts - timedelta(days=40)).isoformat()
 open(path, "w", encoding="utf-8").write(re.sub(r"ts: (\S+)", back, src))
 PY
-art compact --force --json >"$WORK/compact2.json" 2>&1 || { cat "$WORK/compact2.json" >&2; fail "the second compact failed"; }
-wait_for 10 test -f "$VAULT/.art/comments/$MD_ID.archive.yaml" \
+artx compact --force --json >"$WORK/compact2.json" 2>&1 || { cat "$WORK/compact2.json" >&2; fail "the second compact failed"; }
+wait_for 10 test -f "$VAULT/.artx/comments/$MD_ID.archive.yaml" \
   || { cat "$WORK/compact2.json" >&2; fail "no archive file $MD_ID.archive.yaml was produced"; }
-assert_grep "$VAULT/.art/comments/$MD_ID.archive.yaml" "e: archive" "the archive file holds archive events"
+assert_grep "$VAULT/.artx/comments/$MD_ID.archive.yaml" "e: archive" "the archive file holds archive events"
 assert_eq "$(jget 'str(sum(s["threads_archived"] for s in d["stats"]))' <"$WORK/compact2.json")" "1" \
   "exactly 1 resolved thread was archived"
-ok "archive file .art/comments/$MD_ID.archive.yaml created"
+ok "archive file .artx/comments/$MD_ID.archive.yaml created"
 
 # ---------------------------------------------------------------------------
 step "risk 2: API output with serve matches direct CLI reads without serve, field for field"
@@ -488,27 +488,27 @@ step "risk 2: API output with serve matches direct CLI reads without serve, fiel
 curl -s "$BASE/api/docs/$HTML_ID/comments" | jget 'json.dumps(d["threads"],sort_keys=True,ensure_ascii=False)' \
   >"$WORK/threads-api.json"
 stop_serve
-art comments --doc "$HTML_ID" --all --json \
+artx comments --doc "$HTML_ID" --all --json \
   | jget 'json.dumps((d if isinstance(d,list) else d["threads"]),sort_keys=True,ensure_ascii=False)' \
   >"$WORK/threads-cli.json"
 diff -u "$WORK/threads-api.json" "$WORK/threads-cli.json" >"$WORK/threads.diff" 2>&1 \
   || { cat "$WORK/threads.diff" >&2; fail "the threads arrays from the CLI and the HTTP API differ"; }
-ok "art comments --json and GET /api/docs/{id}/comments agree field for field"
+ok "artx comments --json and GET /api/docs/{id}/comments agree field for field"
 
 # ---------------------------------------------------------------------------
 step "the direct-write CLI path still works without serve"
 # ---------------------------------------------------------------------------
-art reply "$EL_THREAD" "无 serve 直写的回复" >/dev/null
-art comments --doc "$HTML_ID" --all --json \
+artx reply "$EL_THREAD" "无 serve 直写的回复" >/dev/null
+artx comments --doc "$HTML_ID" --all --json \
   | jget 'str(any(r["body"]=="无 serve 直写的回复" for t in (d if isinstance(d,list) else d["threads"]) for r in t["replies"]))' \
-  | grep -qx True || fail "art reply did not persist without serve"
-ok "art reply writes directly when serve is down"
+  | grep -qx True || fail "artx reply did not persist without serve"
+ok "artx reply writes directly when serve is down"
 
 # ---------------------------------------------------------------------------
-step "art doctor: exit 0 on a clean vault, non-zero when issues remain"
+step "artx doctor: exit 0 on a clean vault, non-zero when issues remain"
 # ---------------------------------------------------------------------------
-art doctor >"$WORK/doctor.log" 2>&1 || { cat "$WORK/doctor.log" >&2; fail "art doctor exited non-zero"; }
-ok "art doctor exits 0 on a clean vault: $(head -1 "$WORK/doctor.log")"
+artx doctor >"$WORK/doctor.log" 2>&1 || { cat "$WORK/doctor.log" >&2; fail "artx doctor exited non-zero"; }
+ok "artx doctor exits 0 on a clean vault: $(head -1 "$WORK/doctor.log")"
 
 # The exit code has to be directly consumable by agents and CI: drop in an
 # artifact with no aid, and doctor must report missing-aid and exit non-zero;
@@ -516,21 +516,21 @@ ok "art doctor exits 0 on a clean vault: $(head -1 "$WORK/doctor.log")"
 mkdir -p "$VAULT/stray"
 printf '# 没有 frontmatter aid 的文档\n' >"$VAULT/stray/index.md"
 set +e
-art doctor >"$WORK/doctor-dirty.log" 2>&1
+artx doctor >"$WORK/doctor-dirty.log" 2>&1
 RC=$?
 set -e
-[[ $RC -ne 0 ]] || { cat "$WORK/doctor-dirty.log" >&2; fail "art doctor still exited 0 with an unresolved issue"; }
+[[ $RC -ne 0 ]] || { cat "$WORK/doctor-dirty.log" >&2; fail "artx doctor still exited 0 with an unresolved issue"; }
 assert_grep "$WORK/doctor-dirty.log" "missing-aid" "doctor reports missing-aid"
-ok "art doctor exits ${RC} (non-zero) with an unresolved issue"
+ok "artx doctor exits ${RC} (non-zero) with an unresolved issue"
 rm -rf "$VAULT/stray"
-art doctor >/dev/null 2>&1 || fail "doctor should return to exit 0 once the bad artifact is gone"
-ok "art doctor is back to exit 0 after the issue is removed"
+artx doctor >/dev/null 2>&1 || fail "doctor should return to exit 0 once the bad artifact is gone"
+ok "artx doctor is back to exit 0 after the issue is removed"
 
 # ---------------------------------------------------------------------------
 step "security: --host 0.0.0.0 without a token must refuse to start"
 # ---------------------------------------------------------------------------
 set +e
-"$ART" --vault "$VAULT" serve --host 0.0.0.0 --port "$PORT" >"$WORK/host-notoken.log" 2>&1
+"$ARTX" --vault "$VAULT" serve --host 0.0.0.0 --port "$PORT" >"$WORK/host-notoken.log" 2>&1
 RC=$?
 set -e
 [[ $RC -ne 0 ]] || { cat "$WORK/host-notoken.log" >&2; fail "--host 0.0.0.0 started without a token"; }
@@ -542,7 +542,7 @@ step "security: authentication under --host 0.0.0.0 --token"
 TOKEN="e2e-secret-$RANDOM"
 PORT="$(free_port)"
 BASE="http://127.0.0.1:$PORT"
-"$ART" --vault "$VAULT" serve --host 0.0.0.0 --port "$PORT" --token "$TOKEN" >"$WORK/serve-token.log" 2>&1 &
+"$ARTX" --vault "$VAULT" serve --host 0.0.0.0 --port "$PORT" --token "$TOKEN" >"$WORK/serve-token.log" 2>&1 &
 SERVE_PID=$!
 wait_for 20 bash -c "curl -sf -H 'Authorization: Bearer $TOKEN' '$BASE/api/health' >/dev/null" \
   || { cat "$WORK/serve-token.log" >&2; fail "serve with a token failed to start"; }

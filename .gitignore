@@ -10,4 +10,4 @@ internal/server/dist/*
 .DS_Store
 
 # Stray binary at the repo root (the real one belongs in bin/).
-/art
+/artx

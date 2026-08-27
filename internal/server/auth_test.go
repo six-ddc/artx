@@ -47,12 +47,12 @@ func TestAuthQueryToken(t *testing.T) {
 		if c.Name == TokenCookie && c.Value == "secret" {
 			found = true
 			if !c.HttpOnly {
-				t.Fatal("art_token cookie must be HttpOnly")
+				t.Fatal("artx_token cookie must be HttpOnly")
 			}
 		}
 	}
 	if !found {
-		t.Fatal("art_token cookie should have been set")
+		t.Fatal("artx_token cookie should have been set")
 	}
 }
 

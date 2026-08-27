@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/six-ddc/art/internal/mdsrc"
+	"github.com/six-ddc/artx/internal/mdsrc"
 )
 
 const sample = `---
