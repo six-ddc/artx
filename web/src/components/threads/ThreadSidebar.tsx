@@ -10,6 +10,8 @@ interface ThreadSidebarProps {
   threads: Thread[];
   focusedThreadId?: string;
   onFocusThread: (threadId: string) => void;
+  /** Clears the focused thread (?t=); narrowing the filter away from the focused thread's status counts as being done with it. */
+  onClearFocus: () => void;
   /** Closes the drawer (the topbar comments toggle reopens it). */
   onClose: () => void;
   /** The new-comment composer card, docked above the thread list while a selection is pending. */
@@ -18,7 +20,7 @@ interface ThreadSidebarProps {
 
 const FLASH_MS = 650;
 
-export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, onClose, composer }: ThreadSidebarProps) {
+export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, onClearFocus, onClose, composer }: ThreadSidebarProps) {
   const [filter, setFilter] = useState<ThreadFilterValue>('open');
   const [flashIds, setFlashIds] = useState<ReadonlySet<string>>(new Set());
   const knownIds = useRef<Set<string> | null>(null);
@@ -50,12 +52,30 @@ export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, 
   // Focus must never point at an invisible card: clicking a highlight whose
   // thread the current filter hides (e.g. an addressed thread under the
   // default "open" filter) widens the filter to "all" so the card can light
-  // up and scroll into view.
+  // up and scroll into view. This must fire only when the focus CHANGES —
+  // as a standing assertion it fought the user's own tab clicks: with a
+  // mismatched thread focused (and focus is sticky now), every attempt to
+  // narrow the filter snapped straight back to "all", so the tabs read as
+  // dead.
+  const lastWidenedFocus = useRef<string | undefined>(undefined);
   useEffect(() => {
+    if (focusedThreadId === lastWidenedFocus.current) return;
+    lastWidenedFocus.current = focusedThreadId;
     if (!focusedThreadId || filter === 'all') return;
     const focused = threads.find((t) => t.thread === focusedThreadId);
     if (focused && focused.status !== filter) setFilter('all');
   }, [focusedThreadId, threads, filter]);
+
+  // The inverse direction: deliberately narrowing the filter away from the
+  // focused thread's status means the user is done with that focus — clear
+  // it instead of hiding a still-focused card (or fighting the widen rule).
+  function changeFilter(next: ThreadFilterValue) {
+    setFilter(next);
+    if (next !== 'all' && focusedThreadId) {
+      const focused = threads.find((t) => t.thread === focusedThreadId);
+      if (focused && focused.status !== next) onClearFocus();
+    }
+  }
 
   const counts = useMemo(() => {
     const c: Record<ThreadFilterValue, number> = { open: 0, addressed: 0, resolved: 0, all: threads.length };
@@ -100,7 +120,7 @@ export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, 
               <X className="size-3.5" />
             </Button>
           </div>
-          <ThreadFilter value={filter} counts={counts} onChange={setFilter} />
+          <ThreadFilter value={filter} counts={counts} onChange={changeFilter} />
         </div>
         {composer && <div className="border-b p-3">{composer}</div>}
         <div className="flex-1 space-y-2 overflow-y-auto p-3">

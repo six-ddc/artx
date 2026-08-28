@@ -133,6 +133,7 @@ export function DocView() {
             threads={threads}
             focusedThreadId={search.t}
             onFocusThread={focusThread}
+            onClearFocus={() => void navigate({ search: (prev) => ({ ...prev, t: undefined }) })}
             onClose={() => setCommentsChoice(false)}
             composer={
               pending && (

@@ -81,11 +81,16 @@ export function ThreadCard({ docId, thread, focused, flash, onFocus }: ThreadCar
 
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{thread.body}</p>
 
-      {thread.addressed && (
-        <p className="text-xs text-status-addressed">
-          Addressed
-          {thread.addressed.commit && <> · {thread.addressed.commit.slice(0, 7)}</>}
-          {thread.addressed.note && <> · {thread.addressed.note}</>}
+      {/* The status dot already says "addressed" — this line exists only for
+          the extra facts (commit, note), muted like any other metadata, and
+          disappears entirely when there are none. */}
+      {thread.addressed && (thread.addressed.commit || thread.addressed.note) && (
+        <p className="text-xs text-muted-foreground">
+          {thread.addressed.commit && (
+            <span className="art-mono">{thread.addressed.commit.slice(0, 7)}</span>
+          )}
+          {thread.addressed.commit && thread.addressed.note && ' · '}
+          {thread.addressed.note}
         </p>
       )}
 
