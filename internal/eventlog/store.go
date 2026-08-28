@@ -2,6 +2,7 @@ package eventlog
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -123,7 +124,11 @@ func splitRawBlocks(data []byte) []rawBlock {
 	var markers []int
 	off := 0
 	for _, line := range splitLinesKeepEnds(data) {
-		trimmed := strings.TrimSpace(strings.TrimRight(string(line), "\r\n"))
+		// A separator must sit at column 0 (YAML spec): an INDENTED "---" is
+		// document content — e.g. a comment body containing a horizontal
+		// rule, emitted inside a literal block — and splitting on it would
+		// shred a perfectly valid event.
+		trimmed := strings.TrimRight(string(line), " \t\r\n")
 		if trimmed == "---" {
 			markers = append(markers, off)
 		}
@@ -249,7 +254,7 @@ func Marshal(events ...Event) ([]byte, error) {
 	var buf bytes.Buffer
 	for _, e := range events {
 		buf.WriteString("---\n")
-		data, err := yaml.Marshal(e)
+		data, err := marshalEvent(e)
 		if err != nil {
 			return nil, err
 		}
@@ -259,6 +264,68 @@ func Marshal(events ...Event) ([]byte, error) {
 		}
 	}
 	return buf.Bytes(), nil
+}
+
+// marshalEvent serializes one event and PROVES the result parses back
+// before it is allowed anywhere near the log. go-yaml's encoder can emit
+// invalid YAML for some multiline strings — a literal block whose first
+// content line is empty and whose later lines carry leading spaces (an
+// anchor quote around indented code next to a ``` fence) loses its
+// indentation indicator, and the block mis-parses at read time. When the
+// pretty form fails the check, every string is re-encoded as a JSON-style
+// double-quoted scalar (always unambiguous YAML) and checked again; an
+// event that still cannot round-trip is refused rather than appended as a
+// corrupt block.
+func marshalEvent(e Event) ([]byte, error) {
+	data, err := yaml.Marshal(e)
+	if err == nil && roundTrips(e, data) {
+		return data, nil
+	}
+	data, err = yaml.MarshalWithOptions(e, yaml.CustomMarshaler(func(s string) ([]byte, error) {
+		return json.Marshal(s)
+	}))
+	if err != nil {
+		return nil, err
+	}
+	if !roundTrips(e, data) {
+		return nil, fmt.Errorf("eventlog: event %s does not survive a yaml round-trip", e.EID)
+	}
+	return data, nil
+}
+
+// roundTrips reports whether data survives the REAL read path (block
+// splitting included) and parses back into an event EQUAL to e. Equality
+// matters — yaml literal blocks silently normalize \r\n to \n, which parses
+// fine and still loses content; and going through ReadFrom rather than a
+// bare Unmarshal catches encoder output that a splitter quirk would shred.
+func roundTrips(e Event, data []byte) bool {
+	block := append([]byte("---\n"), data...)
+	events, report, err := ReadFrom(bytes.NewReader(block))
+	if err != nil || len(events) != 1 || (report != nil && len(report.Warnings) > 0) {
+		return false
+	}
+	a, err1 := json.Marshal(comparableEvent(e))
+	b, err2 := json.Marshal(comparableEvent(events[0]))
+	return err1 == nil && err2 == nil && bytes.Equal(a, b)
+}
+
+// comparableEvent blanks every time field: monotonic readings, zone
+// representation, and the yaml library's fractional-second precision all
+// legitimately differ across a round trip and are identical between the
+// pretty and fallback encodings anyway — the check exists to catch TEXT
+// corruption, and json.Marshal gives a canonical view of everything else.
+func comparableEvent(e Event) Event {
+	e.TS = time.Time{}
+	if e.Archived != nil {
+		a := *e.Archived
+		a.CreatedAt, a.ResolvedAt = time.Time{}, time.Time{}
+		a.Replies = append([]ArchivedNote(nil), a.Replies...)
+		for i := range a.Replies {
+			a.Replies[i].TS = time.Time{}
+		}
+		e.Archived = &a
+	}
+	return e
 }
 
 // FoldResult is the result of folding the full event stream.
