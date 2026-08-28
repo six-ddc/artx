@@ -26,10 +26,10 @@ export function ElementPopover({ docId, pick, onClose }: ElementPopoverProps) {
 
   return (
     <div
-      className="art-pop-in absolute z-20 w-72 rounded border border-line bg-sheet p-2 shadow-lg"
+      className="art-pop-in absolute z-20 w-72 rounded-lg border bg-popover p-2.5 shadow-md"
       style={{ left: pick.rect.x, top: pick.rect.y + pick.rect.h + 6 }}
     >
-      <p className="art-mono mb-1.5 truncate text-xs text-ink-2">
+      <p className="art-mono mb-1.5 truncate text-xs text-muted-foreground">
         {pick.tag} · {pick.text || '(empty)'}
       </p>
       <Textarea

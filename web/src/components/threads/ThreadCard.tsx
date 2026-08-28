@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { Thread } from '@/lib/types';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { RelTime } from '@/components/ui/rel-time';
 import { AnchorPreview } from './AnchorPreview';
 import { ReplyList } from './ReplyList';
 import { ReplyComposer } from './ReplyComposer';
-import { StatusActions } from './StatusActions';
+import { ThreadActions } from './StatusActions';
 
-const STATUS_VARIANT = {
-  open: 'open',
-  addressed: 'addressed',
-  resolved: 'resolved',
+const STATUS_DOT = {
+  open: 'bg-status-open',
+  addressed: 'bg-status-addressed',
+  resolved: 'bg-status-resolved',
 } as const;
 
 interface ThreadCardProps {
@@ -22,9 +23,9 @@ interface ThreadCardProps {
 }
 
 /**
- * Marginalia: a stack of hairline-separated rows, not boxes or color bars —
- * status is carried by AnchorPreview's highlighter background; the only
- * thing this component does is dim the whole card when resolved.
+ * A proper card: status is a dot in the header badge (never a stripe or a
+ * filled pill), actions stay hidden until the card is hovered or focused,
+ * and a resolved thread dims as a whole.
  */
 export function ThreadCard({ docId, thread, focused, flash, onFocus }: ThreadCardProps) {
   const resolved = thread.status === 'resolved';
@@ -43,36 +44,46 @@ export function ThreadCard({ docId, thread, focused, flash, onFocus }: ThreadCar
       id={`thread-${thread.thread}`}
       onClick={() => onFocus(thread.thread)}
       className={cn(
-        'cursor-pointer space-y-2 border-b border-line px-3 py-3 transition-colors',
+        'group cursor-pointer space-y-2.5 rounded-lg border bg-card p-3 shadow-xs transition-colors',
         resolved && 'opacity-60',
-        focused ? 'bg-hover' : 'hover:bg-hover',
+        focused ? 'border-ring ring-1 ring-ring' : 'hover:border-ring/50',
         flash && 'art-thread-flash',
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        {/* Display-layer decision only, doesn't touch the state machine:
-            the badge shows ORPHAN instead of OPEN when orphaned, so it isn't
-            mistaken for just another open thread at a glance next to other
-            cards. The filter/counts still go by thread.status, so orphan
-            threads keep showing up under the open filter as usual. */}
-        {thread.anchor.orphan ? (
-          <Badge variant="orphan">orphan</Badge>
-        ) : (
-          <Badge variant={STATUS_VARIANT[thread.status]}>{thread.status}</Badge>
-        )}
-        <span className="art-mono text-[11px] text-ink-3">{formatDateTime(thread.created_at)}</span>
+      {/* Fixed-height header row: the hover-revealed action cluster is
+          taller than the text line, so the row reserves its height up front
+          instead of jumping on hover. No author here — the event log still
+          records one, but the default identity chain gives every writer
+          (browser and CLI alike) the same name, so displaying it is noise. */}
+      <div className="flex h-7 items-center gap-2">
+        {/* Status is a bare dot — a text label would just repeat the active
+            filter tab on every card. Under "All" the color differentiates
+            (title carries the word for hover); orphan keeps its text badge
+            since it's the one state worth spelling out. Display-layer
+            decision only: filter/counts still go by thread.status, so
+            orphan threads keep showing up under the open filter as usual. */}
+        <span
+          className={cn('size-2 shrink-0 rounded-full', STATUS_DOT[thread.status])}
+          title={thread.status}
+          aria-label={thread.status}
+        />
+        <RelTime date={thread.created_at} className="text-xs text-muted-foreground" />
+        {thread.anchor.orphan && <Badge variant="orphan">orphan</Badge>}
+        <div
+          className="invisible ml-auto shrink-0 focus-within:visible group-hover:visible has-[[data-state=open]]:visible"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ThreadActions docId={docId} thread={thread} />
+        </div>
       </div>
 
-      <AnchorPreview anchor={thread.anchor} status={thread.status} hint={thread.hint} />
+      <AnchorPreview anchor={thread.anchor} hint={thread.hint} />
 
-      <div>
-        <p className="art-mono text-[11px] font-medium text-ink-2">{thread.author}</p>
-        <p className="whitespace-pre-wrap text-sm text-ink">{thread.body}</p>
-      </div>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{thread.body}</p>
 
       {thread.addressed && (
-        <p className="art-mono text-[11px] text-addressed">
-          Addressed by {thread.addressed.by}
+        <p className="text-xs text-status-addressed">
+          Addressed
           {thread.addressed.commit && <> · {thread.addressed.commit.slice(0, 7)}</>}
           {thread.addressed.note && <> · {thread.addressed.note}</>}
         </p>
@@ -81,9 +92,8 @@ export function ThreadCard({ docId, thread, focused, flash, onFocus }: ThreadCar
       {/* The contract field replies is typed as required Reply[], but the backend occasionally sends null; the frozen type doesn't change, so we guard here. */}
       <ReplyList replies={thread.replies ?? []} />
 
-      <div className="space-y-2 pt-1" onClick={(e) => e.stopPropagation()}>
+      <div onClick={(e) => e.stopPropagation()}>
         <ReplyComposer docId={docId} threadId={thread.thread} />
-        <StatusActions docId={docId} thread={thread} />
       </div>
     </div>
   );

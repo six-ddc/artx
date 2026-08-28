@@ -16,7 +16,7 @@ export function RootLayout() {
     <SSEStatusContext.Provider value={status}>
       <DocsSearchContext.Provider value={{ query, setQuery }}>
         <HeaderSlotContext.Provider value={{ el: headerSlot, setEl: setHeaderSlot }}>
-          <div className="min-h-dvh bg-desk text-ink">
+          <div className="min-h-dvh bg-background text-foreground">
             <Header />
             {/* Routes own their width: the index constrains itself to a
                 centered column, the doc route runs full-bleed — below the

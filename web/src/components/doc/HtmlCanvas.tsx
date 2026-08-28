@@ -3,7 +3,6 @@ import { Check, MessageSquarePlus, MousePointer2, Pencil, X } from 'lucide-react
 import type { DocDetail, Thread } from '@/lib/types';
 import type { HoverMsg, PickMsg } from '@/lib/protocol';
 import { usePostElement } from '@/lib/queries';
-import { cn } from '@/lib/utils';
 import { useFrameBridge } from './frame-bridge';
 import { HoverOutline } from './HoverOutline';
 import { ElementPopover } from './ElementPopover';
@@ -14,9 +13,10 @@ export type HtmlCanvasMode = 'browse' | 'review' | 'edit';
 // An html artifact is an arbitrary interactive page, so a plain click is
 // genuinely ambiguous (trigger the page / comment / edit). The cursor tool
 // resolves it, scoped to this canvas only — like devtools' element picker,
-// not a page-wide mode: Interact is the default, the pickers are one-shot
-// (they snap back after use) and Esc always returns to Interact. Alt+click
-// is the no-tool-switch shortcut for commenting.
+// not a page-wide mode: Interact is the default, Comment is one-shot (it
+// snaps back after use), Edit stays armed for consecutive edits, and Esc
+// always returns to Interact. Alt+click is the no-tool-switch shortcut for
+// commenting.
 type CanvasTool = 'interact' | 'comment' | 'edit';
 
 /** tool → reviewer-protocol mode (the frozen protocol keeps its historical mode names). */
@@ -43,7 +43,6 @@ interface HtmlCanvasProps {
 /** The html artifact sits in a sandboxed iframe, talking postMessage with the injected reviewer.ts (§7.5). */
 export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: HtmlCanvasProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { lastMessage, postToFrame } = useFrameBridge(iframeRef);
   const [height, setHeight] = useState(480);
   const [tool, setTool] = useState<CanvasTool>('interact');
   const [hover, setHover] = useState<HoverMsg | null>(null);
@@ -63,9 +62,10 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
     .filter((t) => t.anchor.kind === 'element' && t.anchor.aid)
     .map((t) => t.anchor.aid as string);
 
-  useEffect(() => {
-    if (!lastMessage) return;
-    switch (lastMessage.type) {
+  // Direct per-message delivery (see frame-bridge.ts: a lastMessage state
+  // drops messages when Firefox delivers a burst in one task).
+  const { postToFrame } = useFrameBridge(iframeRef, (msg) => {
+    switch (msg.type) {
       case 'ready': {
         // Script just became ready: push the current mode/highlight/pending focused thread in one shot.
         postToFrame({ type: 'mode', mode });
@@ -75,31 +75,31 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
         break;
       }
       case 'hover':
-        setHover(lastMessage.aid ? lastMessage : null);
+        setHover(msg.aid ? msg : null);
         break;
       case 'pick':
         // The reviewer only sends picks for the comment tool or an
         // Alt+click, never while editing (see the note in reviewer.ts about
         // the popover's autoFocus stealing the contenteditable's focus).
-        setPick(lastMessage);
+        setPick(msg);
         break;
       case 'size':
-        setHeight(Math.max(200, lastMessage.height));
+        setHeight(Math.max(200, msg.height));
         break;
       case 'edit':
         postElement.mutate(
-          { aid: lastMessage.aid, html: lastMessage.html },
+          { aid: msg.aid, html: msg.html },
           {
             onSuccess: () => setSaveNotice('saved'),
             onError: () => setSaveNotice('error'),
           },
         );
-        // One-shot: a committed edit hands the cursor back to Interact.
-        setTool('interact');
+        // Edit stays armed after a commit (matching the md canvas), so a
+        // pass over many elements doesn't require re-picking the tool every
+        // time; Esc or the pill hands the cursor back to Interact.
         break;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastMessage]);
+  });
 
   useEffect(() => {
     postToFrame({ type: 'mode', mode });
@@ -148,12 +148,13 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
       {pick && <ElementPopover docId={docId} pick={pick} onClose={closePick} />}
       {saveNotice && (
         <div
-          className={cn(
-            'art-mono pointer-events-none absolute bottom-2 right-2 z-20 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-white shadow',
-            saveNotice === 'saved' ? 'bg-resolved' : 'bg-danger',
-          )}
+          className="pointer-events-none absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border bg-popover px-2.5 py-1 text-xs font-medium text-popover-foreground shadow-md"
         >
-          {saveNotice === 'saved' ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+          {saveNotice === 'saved' ? (
+            <Check className="size-3.5 text-status-resolved" />
+          ) : (
+            <X className="size-3.5 text-destructive" />
+          )}
           {saveNotice === 'saved' ? 'Saved' : 'Save failed'}
         </div>
       )}

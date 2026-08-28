@@ -27,14 +27,14 @@ export function DocsIndex() {
   if (isPending) {
     return (
       <Shell>
-        <p className="text-sm text-ink-2">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       </Shell>
     );
   }
   if (isError) {
     return (
       <Shell>
-        <p className="text-sm text-danger">Failed to load: {error.message}</p>
+        <p className="text-sm text-destructive">Failed to load: {error.message}</p>
       </Shell>
     );
   }
@@ -43,16 +43,16 @@ export function DocsIndex() {
     if (query) {
       return (
         <Shell>
-          <p className="text-sm text-ink-2">No documents match "{query}"</p>
+          <p className="text-sm text-muted-foreground">No documents match "{query}"</p>
         </Shell>
       );
     }
     // Empty vault: for this audience, a one-line command to copy-paste is the best onboarding.
     return (
       <Shell>
-        <div className="border border-line bg-sheet px-4 py-6 text-sm text-ink-2">
+        <div className="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground shadow-xs">
           <p>This vault has no documents yet.</p>
-          <pre className="art-mono mt-3 overflow-x-auto rounded border border-line bg-muted px-3 py-2 text-xs text-ink">
+          <pre className="art-mono mt-3 overflow-x-auto rounded-md border bg-muted px-3 py-2 text-xs text-foreground">
             artx new &lt;slug&gt; --type md --json
           </pre>
         </div>
@@ -62,7 +62,7 @@ export function DocsIndex() {
 
   return (
     <Shell>
-      <div className="border-t border-line">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
         {docs.map((doc) => (
           <DocCard key={doc.id} doc={doc} />
         ))}

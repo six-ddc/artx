@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { BookOpen, MessageSquarePlus, Pencil } from 'lucide-react';
 import type { DocDetail, SelectionInput, Thread } from '@/lib/types';
 import { BlockEditLayer } from './BlockEditLayer';
+import { BlockPickLayer } from './BlockPickLayer';
 import { HighlightLayer } from './HighlightLayer';
 import { SelectionPopover } from './SelectionPopover';
 import { MermaidMath } from './MermaidMath';
@@ -9,7 +10,9 @@ import { ToolPill, type ToolPillItem } from './ToolPill';
 
 // The md canvas mirrors the html canvas's cursor-tool pill (the user-facing
 // contract: both doc types offer the same three buttons). Read is the
-// default; Comment arms the selection popover; Edit arms the gutter pencil.
+// default; Comment arms the selection popover plus the block picker (click
+// a block to comment on it whole — the md counterpart of the html element
+// picker); Edit arms click-a-block source editing.
 // Comment is one-shot — handing a selection to the composer retires the
 // tool — while Edit stays armed for consecutive block edits; Esc always
 // returns to Read.
@@ -17,7 +20,7 @@ type MdTool = 'read' | 'comment' | 'edit';
 
 const TOOLS: ToolPillItem<MdTool>[] = [
   { tool: 'read', label: 'Read', icon: BookOpen },
-  { tool: 'comment', label: 'Comment on a selection', icon: MessageSquarePlus },
+  { tool: 'comment', label: 'Comment on a selection or block', icon: MessageSquarePlus },
   { tool: 'edit', label: 'Edit a block', icon: Pencil },
 ];
 
@@ -99,11 +102,18 @@ export function MdCanvas({
         html={doc.html}
       />
       {activeTool === 'comment' && (
-        <SelectionPopover
-          containerRef={containerRef}
-          positionRef={positionRef}
-          onStartComment={startComment}
-        />
+        <>
+          <SelectionPopover
+            containerRef={containerRef}
+            positionRef={positionRef}
+            onStartComment={startComment}
+          />
+          <BlockPickLayer
+            containerRef={containerRef}
+            positionRef={positionRef}
+            onPickBlock={startComment}
+          />
+        </>
       )}
       {activeTool === 'edit' && (
         <BlockEditLayer containerRef={containerRef} positionRef={positionRef} docId={docId} />

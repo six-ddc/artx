@@ -22,9 +22,14 @@ export function DocView() {
   const { docId } = routeApi.useParams();
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  // The in-flight new comment: anchor input captured from a selection,
-  // composing in the drawer while the prose shows the pending highlight.
-  const [pending, setPending] = useState<SelectionInput | null>(null);
+  // The in-flight new comment: anchor input captured from a selection or a
+  // block pick, composing in the drawer while the prose shows the pending
+  // highlight. preview is display-only — a whole-block pick sends an empty
+  // exact (the server's anchor-the-block path), so the composer shows the
+  // block's rendered text instead.
+  const [pending, setPending] = useState<{ selection: SelectionInput; preview: string } | null>(
+    null,
+  );
   // The comments drawer: null = the user hasn't chosen yet, so it defaults
   // to open exactly when the doc has open threads — a clean doc reads as a
   // plain page, a doc under review leads with its marginalia.
@@ -54,12 +59,23 @@ export function DocView() {
   }
 
   function focusThread(threadId: string) {
-    void navigate({ search: (prev) => ({ ...prev, t: prev.t === threadId ? undefined : threadId }) });
+    // Clicking always means "take me there" — never a toggle-off (that read
+    // as "clicking does nothing", since unfocusing is visually subtle).
+    // HighlightLayer only scrolls when the focused id CHANGES, so a
+    // re-click on the already-focused thread re-scrolls imperatively.
+    if (search.t === threadId) {
+      document
+        .querySelector(`[data-art-thread="${CSS.escape(threadId)}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    void navigate({ search: (prev) => ({ ...prev, t: threadId }) });
   }
 
   function startComment(selection: SelectionInput, range: Range) {
     setPendingHighlight(range);
-    setPending(selection);
+    const preview = selection.exact || range.toString().replace(/\s+/g, ' ').trim().slice(0, 200);
+    setPending({ selection, preview });
     setCommentsChoice(true); // the composer lives in the drawer
   }
 
@@ -69,10 +85,10 @@ export function DocView() {
   }
 
   if (docQuery.isPending) {
-    return <p className="p-6 text-sm text-ink-2">Loading…</p>;
+    return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   }
   if (docQuery.isError) {
-    return <p className="p-6 text-sm text-danger">Failed to load: {docQuery.error.message}</p>;
+    return <p className="p-6 text-sm text-destructive">Failed to load: {docQuery.error.message}</p>;
   }
 
   const doc = docQuery.data;
@@ -89,7 +105,7 @@ export function DocView() {
         commentsOpen={commentsOpen}
         onToggleComments={() => setCommentsChoice(!commentsOpen)}
       />
-      <div className="flex min-h-[calc(100dvh-3rem)] items-start bg-sheet">
+      <div className="flex min-h-[calc(100dvh-3rem)] items-start">
         <div className="min-w-0 flex-1">
           {doc.type === 'md' ? (
             <MdCanvas
@@ -119,7 +135,14 @@ export function DocView() {
             onFocusThread={focusThread}
             onClose={() => setCommentsChoice(false)}
             composer={
-              pending && <CommentComposer docId={docId} selection={pending} onDone={endComment} />
+              pending && (
+                <CommentComposer
+                  docId={docId}
+                  selection={pending.selection}
+                  quote={pending.preview}
+                  onDone={endComment}
+                />
+              )
             }
           />
         )}

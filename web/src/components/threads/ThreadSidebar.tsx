@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import type { Thread } from '@/lib/types';
+import { Button } from '@/components/ui/button';
 import { ThreadFilter, type ThreadFilterValue } from './ThreadFilter';
 import { ThreadCard } from './ThreadCard';
 
@@ -22,7 +23,7 @@ export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, 
   const [flashIds, setFlashIds] = useState<ReadonlySet<string>>(new Set());
   const knownIds = useRef<Set<string> | null>(null);
 
-  // A soft amber flash, once, for threads that just arrived via SSE: diff
+  // A soft flash, once, for threads that just arrived via SSE: diff
   // against the last-rendered set of thread ids. The first mount only
   // establishes the baseline and never flashes (otherwise every thread would
   // flash together the moment the page opens).
@@ -62,38 +63,49 @@ export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, 
     return c;
   }, [threads]);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? threads : threads.filter((t) => t.status === filter)),
-    [threads, filter],
-  );
+  // Cards follow the document, not the clock: sort by the anchor's byte
+  // offset into the source, so the sidebar reads top-to-bottom alongside
+  // the prose (and an orphan stays where its text last lived). The server
+  // returns creation order (event-id sort); created_at is only the
+  // tie-break — and the de-facto order for html docs, whose element
+  // anchors carry no position (start is 0 across the board there).
+  const filtered = useMemo(() => {
+    const shown = filter === 'all' ? threads : threads.filter((t) => t.status === filter);
+    return [...shown].sort(
+      (a, b) => a.anchor.start - b.anchor.start || a.created_at.localeCompare(b.created_at),
+    );
+  }, [threads, filter]);
 
   return (
     <>
       {/* Below lg the drawer floats over the page; the scrim closes it. */}
-      <div className="fixed inset-0 z-20 bg-ink/25 lg:hidden" onClick={onClose} aria-hidden />
-      <aside className="art-slide-in flex w-80 shrink-0 flex-col gap-3 border-l border-line bg-sheet px-4 pt-4 max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:top-12 max-lg:z-30 max-lg:max-w-[85vw] max-lg:shadow-xl lg:sticky lg:top-12 lg:h-[calc(100dvh-3rem)]">
-        {/* Two-row layout: title and filter each get their own row instead of
+      <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={onClose} aria-hidden />
+      <aside className="art-slide-in flex w-[21rem] shrink-0 flex-col border-l bg-background max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:top-12 max-lg:z-30 max-lg:max-w-[85vw] max-lg:shadow-xl lg:sticky lg:top-12 lg:h-[calc(100dvh-3rem)]">
+        {/* Two-row header: title and filter each get their own row instead of
             fighting for one and wrapping — the filter's up to 4 count segments
             sharing a row with the title would wrap almost every time in a
-            narrow sidebar. */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center">
-            <h2 className="text-sm font-semibold text-ink">Threads</h2>
-            <button
-              type="button"
+            narrow sidebar. The filter's underline sits on the header's own
+            border-b, reading as one tab bar. */}
+        <div className="border-b px-4 pt-3.5">
+          <div className="mb-2.5 flex items-center">
+            <h2 className="text-sm font-semibold">Threads</h2>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={onClose}
               title="Hide comments"
-              className="ml-auto flex size-6 items-center justify-center rounded text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+              aria-label="Hide comments"
+              className="ml-auto"
             >
               <X className="size-3.5" />
-            </button>
+            </Button>
           </div>
           <ThreadFilter value={filter} counts={counts} onChange={setFilter} />
         </div>
-        {composer}
-        <div className="flex-1 overflow-y-auto border-t border-line">
+        {composer && <div className="border-b p-3">{composer}</div>}
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {filtered.length === 0 ? (
-            <p className="px-1 py-3 text-xs text-ink-3">
+            <p className="px-1 py-2 text-xs text-muted-foreground">
               {filter === 'all' ? 'No threads' : `No ${filter} threads`}
             </p>
           ) : (

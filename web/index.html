@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <title>artx</title>
+    <!-- Restore a forced theme before first paint (see ThemeToggle.tsx) so
+         there's no light-flash for dark-theme users. -->
+    <script>
+      try {
+        var t = localStorage.getItem('artx-theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.dataset.theme = t;
+          document.documentElement.style.colorScheme = t;
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

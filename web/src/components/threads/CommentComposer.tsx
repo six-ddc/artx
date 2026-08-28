@@ -7,17 +7,19 @@ import { Textarea } from '@/components/ui/textarea';
 interface CommentComposerProps {
   docId: string;
   selection: SelectionInput;
+  /** Display-only quote; a whole-block pick has an empty selection.exact, so the owner passes the block's rendered text instead. */
+  quote?: string;
   /** Called on both submit success and cancel; the owner clears the pending highlight. */
   onDone: () => void;
 }
 
 /**
- * The new-comment composer, docked at the top of the thread sidebar so it
- * reads as marginalia-in-progress next to the existing cards. The quoted
- * excerpt mirrors AnchorPreview's open-status highlighter treatment, tying
- * the card to the pending highlight in the prose.
+ * The new-comment composer, docked at the top of the thread sidebar. The
+ * quoted excerpt uses the same neutral quote treatment as AnchorPreview;
+ * the pending marker highlight in the prose is what ties this card to its
+ * selection.
  */
-export function CommentComposer({ docId, selection, onDone }: CommentComposerProps) {
+export function CommentComposer({ docId, selection, quote, onDone }: CommentComposerProps) {
   const [body, setBody] = useState('');
   const postEvent = usePostEvent(docId);
 
@@ -27,9 +29,15 @@ export function CommentComposer({ docId, selection, onDone }: CommentComposerPro
   }
 
   return (
-    <div className="space-y-2 border-b border-line px-3 py-3">
-      <p className="art-mono text-[11px] font-medium text-ink-2">New comment</p>
-      <p className="art-mono truncate bg-marker/12 px-1.5 py-1 text-xs text-ink-2">{selection.exact}</p>
+    // Pops in and lights up while focused: starting a comment moves focus
+    // across the page into the drawer, and without a visible cue over here
+    // the jump reads as "nothing happened". The amber quote ties the card
+    // to the pending highlight in the prose.
+    <div className="art-pop-in space-y-2 rounded-lg border bg-card p-3 shadow-xs transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-md">
+      <p className="text-xs font-medium">New comment</p>
+      <p className="art-mono art-pending-quote truncate rounded-md px-2.5 py-1.5 text-xs text-foreground">
+        {quote ?? selection.exact}
+      </p>
       <Textarea
         autoFocus
         rows={3}

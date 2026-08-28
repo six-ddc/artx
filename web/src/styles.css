@@ -1,27 +1,20 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* Font weights are bundled into dist rather than pulled from Google Fonts or
-   a CDN: the binary has to run fully offline. This is the same reasoning that
+/* Fonts are bundled into dist rather than pulled from Google Fonts or a
+   CDN: the binary has to run fully offline. This is the same reasoning that
    makes reviewer.js dependency-free under R2 — the shell is held to it too,
    so no network fonts here either. */
-@import '@fontsource/ibm-plex-sans/400.css';
-@import '@fontsource/ibm-plex-sans/500.css';
-@import '@fontsource/ibm-plex-sans/600.css';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-@import '@fontsource/ibm-plex-mono/600.css';
-
-/* Tailwind v4 is CSS-first configuration; the `dark:` variant follows
-   `prefers-color-scheme` by default (no @custom-variant override needed),
-   which satisfies the "dark mode support (follows system)" requirement
-   without needing a runtime like next-themes. */
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
 /* ---------------------------------------------------------------------
-   Design concept "Annotation Desk": the document is paper, comments are
-   marginalia, and the toolchain is a terminal. The brand identity anchors
-   on the product's most distinctive object — the highlighter anchor
-   highlight (marker).
+   Design language: shadcn/ui neutral (Vercel-style SaaS chrome).
+   The UI itself is achromatic — hierarchy comes from surface, border and
+   type, never from hue. Color is reserved for two things only:
+   1. Thread status (open/addressed/resolved) as small dots and text.
+   2. The highlighter marker inside the rendered document — the product's
+      native annotation language (fixed colors, see the bottom of this file).
    Two hard rules:
    1. Every component sources its color only from the token set below,
       never a literal color value.
@@ -30,108 +23,138 @@
    ------------------------------------------------------------------ */
 
 @theme {
-  --font-sans: 'IBM Plex Sans', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-sans:
+    'Geist Variable', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mono:
-    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+    'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    'Liberation Mono', monospace;
 }
 
 :root {
-  /* Desktop / paper surface */
-  --desk: oklch(96.1% 0.004 148); /* #F6F7F5, a cool porcelain gray with a slight green-gray bias, not default white */
-  --sheet: oklch(98.9% 0.004 90); /* #FCFCFA, document paper surface, cards, popovers */
+  --radius: 0.625rem;
 
-  /* Three-tier ink scale */
-  --ink: oklch(29.3% 0.014 245); /* #20262B, blue-black ink, body text/headings */
-  --ink-2: oklch(50.8% 0.012 245); /* #5A6570, secondary: mono metadata, descriptive text */
-  --ink-3: oklch(65.3% 0.009 245); /* #8A939B, muted: placeholders, orphan */
+  /* shadcn neutral, light */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
 
-  --line: oklch(90.2% 0.006 135); /* #DFE3DE, hairline */
-
-  /* Brand color: highlighter amber. marker itself is only used for the
-     highlight fill/accent line; marker-ink is the matching dark-amber
-     text color, used to keep text readable on top of the marker fill. */
-  --marker: oklch(82.3% 0.15 85); /* #F2C230 */
-  --marker-ink: oklch(46.5% 0.1 70); /* #8A6410, open label text / highlighter-underline text */
-
-  /* Semantic colors: addressed indigo, resolved moss green; orphan has no
-     dedicated color, it uses --ink-3 + a dashed border */
-  --addressed: oklch(45.9% 0.13 265); /* #3E63C4 */
-  --resolved: oklch(48.5% 0.06 145); /* #55795F */
-
-  /* Seal-ink red: used for error states, in the same family as the paper theme (not shadcn's default bright red) */
-  --danger: oklch(45% 0.16 25); /* #B23A2E */
-  --danger-ink: oklch(98% 0.005 90);
+  /* Thread status — the only chromatic UI tokens. Tuned to read both as a
+     dot on a surface and as body-sized text (600-weight hues in light,
+     400-weight in dark). */
+  --status-open: oklch(0.666 0.179 58.32); /* amber */
+  --status-addressed: oklch(0.546 0.245 262.88); /* blue */
+  --status-resolved: oklch(0.627 0.194 149.21); /* green */
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --desk: oklch(21% 0.006 245); /* #15181B */
-    --sheet: oklch(25.5% 0.006 245); /* #1C2024 */
-    --ink: oklch(91.5% 0.006 135); /* #E6E8E4 */
-    --ink-2: oklch(68% 0.01 245); /* one step brighter to keep contrast */
-    --ink-3: oklch(52% 0.012 245);
-    --line: oklch(33% 0.008 245); /* #2B3034 */
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.185 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
 
-    --marker: oklch(85% 0.15 85); /* needs to be one step brighter still against a dark desktop to pop */
-    --marker-ink: oklch(46.5% 0.1 70); /* marker text stays dark — the background is still a light chip */
-
-    --addressed: oklch(68% 0.12 265);
-    --resolved: oklch(68% 0.08 145);
-
-    --danger: oklch(68% 0.16 25);
-    --danger-ink: oklch(18% 0.01 25);
+    --status-open: oklch(0.828 0.189 84.43);
+    --status-addressed: oklch(0.707 0.165 254.62);
+    --status-resolved: oklch(0.792 0.209 151.71);
   }
 }
 
 :root[data-theme='dark'] {
-  --desk: oklch(21% 0.006 245);
-  --sheet: oklch(25.5% 0.006 245);
-  --ink: oklch(91.5% 0.006 135);
-  --ink-2: oklch(68% 0.01 245);
-  --ink-3: oklch(52% 0.012 245);
-  --line: oklch(33% 0.008 245);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.185 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
 
-  --marker: oklch(85% 0.15 85);
-  --marker-ink: oklch(46.5% 0.1 70);
-
-  --addressed: oklch(68% 0.12 265);
-  --resolved: oklch(68% 0.08 145);
-
-  --danger: oklch(68% 0.16 25);
-  --danger-ink: oklch(18% 0.01 25);
+  --status-open: oklch(0.828 0.189 84.43);
+  --status-addressed: oklch(0.707 0.165 254.62);
+  --status-resolved: oklch(0.792 0.209 151.71);
 }
 
 @theme inline {
-  --color-desk: var(--desk);
-  --color-sheet: var(--sheet);
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-ink-3: var(--ink-3);
-  --color-line: var(--line);
-  --color-marker: var(--marker);
-  --color-marker-ink: var(--marker-ink);
-  --color-addressed: var(--addressed);
-  --color-resolved: var(--resolved);
-  --color-danger: var(--danger);
-  --color-danger-ink: var(--danger-ink);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  /* Derived tokens: no literal colors here, computed from the primaries above so light/dark switches automatically. */
-  --color-muted: color-mix(in oklch, var(--ink) 5%, var(--sheet));
-  --color-hover: color-mix(in oklch, var(--ink) 4%, var(--sheet));
+  --color-status-open: var(--status-open);
+  --color-status-addressed: var(--status-addressed);
+  --color-status-resolved: var(--status-resolved);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
   * {
-    border-color: var(--color-line);
+    border-color: var(--color-border);
   }
   body {
-    background-color: var(--color-desk);
-    color: var(--color-ink);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-sans);
-  }
-  ::selection {
-    background-color: color-mix(in oklch, var(--color-marker) 55%, transparent);
-    color: var(--color-ink);
   }
 }
 
@@ -149,6 +172,7 @@
 .art-prose h3,
 .art-prose h4 {
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.3;
   margin-top: 1.6em;
 }
@@ -161,7 +185,7 @@
 .art-prose h2 {
   font-size: 1.25em;
   padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-border);
 }
 .art-prose h3 {
   font-size: 1.125em;
@@ -210,8 +234,8 @@
 }
 .art-prose pre {
   overflow-x: auto;
-  border-radius: 4px;
-  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   background-color: var(--color-muted);
   padding: 0.9em 1.1em;
   font-family: var(--font-mono);
@@ -223,37 +247,33 @@
   font-variant-numeric: tabular-nums;
 }
 .art-prose blockquote {
-  border-left: 3px solid var(--color-marker);
+  border-left: 2px solid var(--color-border);
   padding-left: 1em;
-  color: var(--color-ink-2);
+  color: var(--color-muted-foreground);
 }
 .art-prose blockquote > * + * {
   margin-top: 0.6em;
 }
 
 /* GitHub-style alerts (server-rendered, mdsrc/alerts.go). A card, not a
-   stripe: the kind is carried by the icon + small-caps mono label (the same
-   metadata language as table headers) plus a faint wash of the kind color —
-   the marker left-border stays reserved for real quotes. Kind colors come
-   only from the existing token set: note=ink, tip=resolved,
-   important=addressed, warning=marker, caution=danger. */
+   stripe: the kind is carried by the icon + label plus a faint wash of the
+   kind color. Kind colors come only from the token set: note=neutral,
+   tip=resolved-green, important=addressed-blue, warning=open-amber,
+   caution=destructive. */
 .art-prose blockquote.art-alert {
-  --alert-color: var(--color-ink-2);
-  border: 1px solid color-mix(in oklch, var(--alert-color) 32%, var(--color-line));
-  border-radius: 6px;
+  --alert-color: var(--color-muted-foreground);
+  border: 1px solid color-mix(in oklch, var(--alert-color) 32%, var(--color-border));
+  border-radius: var(--radius-lg);
   padding: 0.7em 1em 0.8em;
-  background-color: color-mix(in oklch, var(--alert-color) 4%, var(--color-sheet));
-  color: var(--color-ink);
+  background-color: color-mix(in oklch, var(--alert-color) 4%, var(--color-background));
+  color: var(--color-foreground);
 }
 .art-prose .art-alert-title {
   display: flex;
   align-items: center;
   gap: 0.5em;
-  font-family: var(--font-mono);
   font-size: 0.8125em;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 600;
   color: var(--alert-color);
 }
 .art-alert-icon {
@@ -265,27 +285,16 @@
   display: none;
 }
 .art-prose .art-alert.art-alert-tip {
-  --alert-color: var(--color-resolved);
+  --alert-color: var(--color-status-resolved);
 }
 .art-prose .art-alert.art-alert-important {
-  --alert-color: var(--color-addressed);
+  --alert-color: var(--color-status-addressed);
+}
+.art-prose .art-alert.art-alert-warning {
+  --alert-color: var(--color-status-open);
 }
 .art-prose .art-alert.art-alert-caution {
-  --alert-color: var(--color-danger);
-}
-/* Amber that reads as *text* in the current theme: marker-ink is tuned for
-   light chips and would vanish on a dark sheet, so warning flips to the
-   bright marker in dark mode — same override pattern as --amber-text below. */
-.art-prose .art-alert.art-alert-warning {
-  --alert-color: var(--color-marker-ink);
-}
-:root[data-theme='dark'] .art-prose .art-alert.art-alert-warning {
-  --alert-color: var(--color-marker);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .art-prose .art-alert.art-alert-warning {
-    --alert-color: var(--color-marker);
-  }
+  --alert-color: var(--color-destructive);
 }
 .art-prose table {
   width: 100%;
@@ -294,26 +303,23 @@
 }
 .art-prose th,
 .art-prose td {
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   padding: 0.4em 0.6em;
   text-align: left;
 }
 .art-prose th {
-  font-family: var(--font-mono);
   font-weight: 500;
   font-size: 0.8125em;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-ink-2);
+  color: var(--color-muted-foreground);
 }
 .art-prose img {
   max-width: 100%;
 }
 
 /* Syntax highlighting (server-side chroma in class mode, mdsrc/highlight.go).
-   A restrained ink-first scheme sourced only from theme tokens, so it
-   follows light/dark for free: keywords/types=addressed, strings=resolved,
-   comments=ink-3, numbers=amber, the rest stays ink. */
+   A restrained scheme sourced only from theme tokens, so it follows
+   light/dark for free: keywords/types=blue, strings=green,
+   comments=muted, numbers=amber, the rest stays foreground. */
 .art-prose code.chroma .k,
 .art-prose code.chroma .kc,
 .art-prose code.chroma .kd,
@@ -321,14 +327,14 @@
 .art-prose code.chroma .kp,
 .art-prose code.chroma .kr,
 .art-prose code.chroma .ow {
-  color: var(--color-addressed);
+  color: var(--color-status-addressed);
   font-weight: 500;
 }
 .art-prose code.chroma .kt,
 .art-prose code.chroma .nc,
 .art-prose code.chroma .nt,
 .art-prose code.chroma .nd {
-  color: var(--color-addressed);
+  color: var(--color-status-addressed);
 }
 .art-prose code.chroma .s,
 .art-prose code.chroma .s1,
@@ -342,7 +348,7 @@
 .art-prose code.chroma .sx,
 .art-prose code.chroma .sr,
 .art-prose code.chroma .ss {
-  color: var(--color-resolved);
+  color: var(--color-status-resolved);
 }
 .art-prose code.chroma .c,
 .art-prose code.chroma .c1,
@@ -351,7 +357,7 @@
 .art-prose code.chroma .ch,
 .art-prose code.chroma .cp,
 .art-prose code.chroma .cpf {
-  color: var(--color-ink-3);
+  color: var(--color-muted-foreground);
   font-style: italic;
 }
 .art-prose code.chroma .m,
@@ -362,7 +368,7 @@
 .art-prose code.chroma .mil,
 .art-prose code.chroma .mo,
 .art-prose code.chroma .no {
-  color: var(--amber-text);
+  color: var(--color-status-open);
 }
 .art-prose code.chroma .nf,
 .art-prose code.chroma .fm {
@@ -370,30 +376,16 @@
 }
 .art-prose code.chroma .o,
 .art-prose code.chroma .p {
-  color: var(--color-ink-2);
+  color: var(--color-muted-foreground);
 }
 /* diff blocks: agents post patches constantly, make ± lines legible */
 .art-prose code.chroma .gd {
-  color: var(--color-danger);
-  background-color: color-mix(in oklch, var(--color-danger) 8%, transparent);
+  color: var(--color-destructive);
+  background-color: color-mix(in oklch, var(--color-destructive) 8%, transparent);
 }
 .art-prose code.chroma .gi {
-  color: var(--color-resolved);
-  background-color: color-mix(in oklch, var(--color-resolved) 8%, transparent);
-}
-
-/* Amber usable as body-sized text: marker-ink in light mode, the bright
-   marker on a dark sheet. */
-.art-prose {
-  --amber-text: var(--color-marker-ink);
-}
-:root[data-theme='dark'] .art-prose {
-  --amber-text: var(--color-marker);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .art-prose {
-    --amber-text: var(--color-marker);
-  }
+  color: var(--color-status-resolved);
+  background-color: color-mix(in oklch, var(--color-status-resolved) 8%, transparent);
 }
 
 /* <art-icon> inline icons (lib/art-icon.ts): sized like a text glyph and
@@ -410,7 +402,7 @@ art-icon svg {
   height: 100%;
 }
 
-/* Shared styling for mono metadata: the common typographic language for id / sha / offset / status labels. */
+/* Shared styling for mono metadata: the common typographic language for id / sha / offset. */
 .art-mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -419,16 +411,14 @@ art-icon svg {
 /* Selection highlight echo (HighlightLayer, §7.4): an exact match is
    marked with a background fill; an approx/orphan match (when the exact
    DOM position can't be found) gets a dashed outline instead.
-   Both background and text colors are hardcoded here (not tied to the
-   --color-marker theme variable) so it stays readable like a real
-   highlighter pen against both light and dark body text — in dark mode,
-   layering the theme color at low opacity straight onto dark body text
-   still leaves the text light-colored, and contrast drops to unreadable
-   (confirmed by testing dark-mode screenshots). */
+   Both background and text colors are hardcoded here (not tied to theme
+   variables) so it stays readable like a real highlighter pen against both
+   light and dark body text — in dark mode, layering a theme color at low
+   opacity straight onto dark body text still leaves the text light-colored,
+   and contrast drops to unreadable (confirmed by testing dark-mode
+   screenshots). The marker amber is the product's one deliberate splash of
+   color — it lives only inside the rendered document, never in the chrome. */
 :root {
-  /* Fixed highlighter colors shared by every "marker pen" surface (anchor
-     highlights, the wordmark) — see the rationale above: hardcoded so it
-     reads the same regardless of light/dark theme. */
   --marker-highlight-bg: oklch(0.8 0.16 75 / 70%);
   --marker-highlight-fg: oklch(0.22 0.02 60);
 }
@@ -436,17 +426,30 @@ art-icon svg {
    marker underline — present but not shouting, so a heavily-annotated
    document stays readable; hover/focus restores the full highlighter fill.
    The faint tier deliberately does NOT set color: at 25% opacity the wash
-   barely tints the body text, so inheriting stays readable in both themes;
-   the fixed --marker-highlight-fg only applies with the full-opacity fill
-   (see the contrast rationale above). Anchors are click targets (focus
-   their thread in the sidebar), hence the pointer cursor. */
+   barely tints the body text, so inheriting stays readable in both themes.
+   An anchor spans multiple <mark> segments when it crosses inline elements
+   (code spans, links); no horizontal padding, no radius, and
+   box-decoration-break keep adjacent segments fusing into one continuous
+   pen stroke instead of a row of disjoint chips. Anchors are click targets
+   (focus their thread in the sidebar), hence the pointer cursor. */
 .art-anchor-exact {
-  background-color: oklch(0.8 0.16 75 / 25%);
-  box-shadow: inset 0 -0.14em 0 var(--marker-highlight-bg);
-  border-radius: 0.2em;
-  padding: 0.05em 0.15em;
+  background-color: oklch(0.8 0.16 75 / 32%);
+  padding-block: 0.08rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   scroll-margin-block: 6rem;
   cursor: pointer;
+}
+/* An anchor's <mark> segments are painted with each segment's own font
+   metrics, so a segment inside inline code (0.875em) gets a shorter
+   background box and the run reads as misaligned steps. Pad the shrunken
+   ascent/descent back (in em of the code font, so it scales with headings
+   too) so every segment's background reaches the same top/bottom edges.
+   The underline tier was dropped for the same reason: a baseline-relative
+   inset shadow can never line up across mixed font sizes. */
+.art-prose code .art-anchor-exact {
+  padding-top: calc(0.08rem + 0.135em);
+  padding-bottom: calc(0.08rem + 0.035em);
 }
 .art-anchor-exact:hover {
   background-color: var(--marker-highlight-bg);
@@ -466,35 +469,31 @@ art-icon svg {
   color: var(--marker-highlight-fg);
 }
 
-/* Wordmark ("artx" in the Header): the logo IS the product's core action —
-   a whole word struck by the highlighter, same fixed marker-pen colors as
-   .art-anchor-exact above (deliberately theme-invariant, matching the
-   anchor highlight's own theme-invariance). A slight counter-rotation and
-   asymmetric padding (more on the right) suggest a single pen stroke
-   without resorting to a jagged/irregular SVG edge, which would look messy
-   against the mono, tool-like aesthetic. */
-.art-wordmark {
-  display: inline-block;
-  background-color: var(--marker-highlight-bg);
-  color: var(--marker-highlight-fg);
-  padding: 1px 9px 1px 6px;
-  border-radius: 3px;
-  transform: rotate(-1deg);
-  letter-spacing: -0.01em;
-}
-/* Block-edit preview (BlockEditLayer): while the gutter pencil is hovered,
-   the block it would edit gets a marker amber outline — matching the
-   reviewer's html element highlight so both doc types speak one language. */
+/* Block-edit preview (BlockEditLayer): with the Edit tool armed, the block
+   under the cursor gets a neutral ring and a click opens its source —
+   editing is chrome, not annotation, so it speaks the neutral UI language
+   rather than marker amber. */
 .art-edit-hover {
-  outline: 2px solid oklch(0.8 0.16 75 / 60%);
+  outline: 2px solid var(--color-ring);
   outline-offset: 4px;
-  border-radius: 0.25em;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Block-pick preview (BlockPickLayer, the md Comment tool): commenting is
+   annotation, so the hover echo speaks marker — the same fixed highlighter
+   colors as the anchor highlights it will produce. */
+.art-pick-hover {
+  outline: 2px solid var(--marker-highlight-bg);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 
 .art-anchor-approx {
-  outline: 1.5px dashed var(--color-ink-3);
+  outline: 1.5px dashed var(--color-ring);
   outline-offset: 3px;
-  border-radius: 0.25em;
+  border-radius: var(--radius-sm);
   scroll-margin-block: 6rem;
   /* Like exact anchors, approx/orphan blocks focus their thread on click. */
   cursor: pointer;
@@ -507,7 +506,7 @@ art-icon svg {
 @media (prefers-reduced-motion: no-preference) {
   @keyframes art-thread-flash {
     0% {
-      background-color: color-mix(in oklch, var(--color-marker) 45%, transparent);
+      background-color: color-mix(in oklch, var(--color-status-open) 22%, transparent);
     }
     100% {
       background-color: transparent;
@@ -551,8 +550,24 @@ art-icon svg {
    @layer, so it can't be overridden by a Tailwind utility class (e.g. an
    accidental outline-none slipped into some component). */
 :focus-visible {
-  outline: 2px solid var(--color-marker);
+  outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+/* Form fields already carry their own focus treatment (border-ring + soft
+   ring shadow, see ui/textarea, ui/select, and the header search input);
+   the global outline stacked on top of their border reads as an ugly
+   double frame. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* The pending-comment quote inside the composer: the same amber wash as the
+   pending highlight in the prose, so the composer visibly belongs to the
+   selection it quotes. */
+.art-pending-quote {
+  background-color: oklch(0.8 0.16 75 / 25%);
 }
 
 /* Hides the scrollbar for ThreadFilter's horizontal-scroll fallback (which never wraps), while keeping scrolling functional. */

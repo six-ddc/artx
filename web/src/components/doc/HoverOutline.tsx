@@ -4,10 +4,10 @@ import type { Rect } from '@/lib/protocol';
 export function HoverOutline({ rect, tag }: { rect: Rect; tag: string }) {
   return (
     <div
-      className="pointer-events-none absolute z-10 rounded-sm border-[1.5px] border-marker"
+      className="pointer-events-none absolute z-10 rounded-sm border-[1.5px] border-[var(--marker-highlight-bg)]"
       style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
     >
-      <span className="art-mono absolute -top-5 left-0 rounded bg-marker px-1 text-[10px] leading-4 text-marker-ink">
+      <span className="art-mono absolute -top-5 left-0 rounded bg-[var(--marker-highlight-bg)] px-1 text-[10px] leading-4 text-[var(--marker-highlight-fg)]">
         {tag}
       </span>
     </div>

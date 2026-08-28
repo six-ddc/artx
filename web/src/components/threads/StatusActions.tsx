@@ -1,158 +1,169 @@
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Check, MoreHorizontal } from 'lucide-react';
 import type { Thread } from '@/lib/types';
 import { usePostEvent } from '@/lib/queries';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-interface StatusActionsProps {
+interface ThreadActionsProps {
   docId: string;
   thread: Thread;
 }
 
-/** addressed / resolve / reopen (§7.2). addressed/reopen can optionally carry a one-line note. */
-export function StatusActions({ docId, thread }: StatusActionsProps) {
-  const postEvent = usePostEvent(docId);
-
-  function resolve() {
-    postEvent.mutate({ type: 'resolve', thread: thread.thread });
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {thread.status === 'open' && (
-        <>
-          <NoteAction
-            label="Mark addressed"
-            placeholder="Note (optional)"
-            pending={postEvent.isPending}
-            onSubmit={(note) =>
-              postEvent.mutate({ type: 'addressed', thread: thread.thread, note: note || undefined })
-            }
-          />
-          <Button size="sm" variant="ghost" disabled={postEvent.isPending} onClick={resolve}>
-            resolve
-          </Button>
-        </>
-      )}
-      {thread.status === 'addressed' && (
-        <>
-          <Button size="sm" variant="ghost" disabled={postEvent.isPending} onClick={resolve}>
-            resolve
-          </Button>
-          <NoteAction
-            label="Reopen"
-            placeholder="Reason (optional)"
-            pending={postEvent.isPending}
-            onSubmit={(note) =>
-              postEvent.mutate({ type: 'reopen', thread: thread.thread, note: note || undefined })
-            }
-          />
-        </>
-      )}
-      {thread.status === 'resolved' && (
-        <NoteAction
-          label="Reopen"
-          placeholder="Reason (optional)"
-          pending={postEvent.isPending}
-          onSubmit={(note) =>
-            postEvent.mutate({ type: 'reopen', thread: thread.thread, note: note || undefined })
-          }
-        />
-      )}
-      <DeleteAction
-        pending={postEvent.isPending}
-        onConfirm={() => postEvent.mutate({ type: 'delete', thread: thread.thread })}
-      />
-    </div>
-  );
-}
+/** Popover dialogs reachable from the ⋯ menu; anchored to the menu button. */
+type Dialog = 'address' | 'reopen' | 'delete';
 
 /**
- * Deletion is destructive-looking but is actually a tombstone event in the
+ * The card's action cluster (§7.2), collapsed into two icon buttons so a
+ * card at rest shows content, not chrome:
+ * - ✓ advances the status one step directly (open → addressed → resolved);
+ * - ⋯ holds the full menu: the with-note variants, Reopen, and Delete.
+ * Delete is destructive-looking but is actually a tombstone event in the
  * append-only log (recoverable until compact) — still, it disappears from
- * every view immediately, so it gets a two-step confirm.
+ * every view immediately, so it keeps a two-step confirm.
  */
-function DeleteAction({ pending, onConfirm }: { pending: boolean; onConfirm: () => void }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={pending}
-          className="ml-auto text-ink-3 hover:text-danger"
-          aria-label="Delete thread"
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56">
-        <p className="text-xs text-ink-2">Delete this thread and its replies?</p>
-        <div className="mt-2 flex justify-end gap-1.5">
-          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              onConfirm();
-              setOpen(false);
-            }}
-          >
-            Delete
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function NoteAction({
-  label,
-  placeholder,
-  pending,
-  onSubmit,
-}: {
-  label: string;
-  placeholder: string;
-  pending: boolean;
-  onSubmit: (note: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
+export function ThreadActions({ docId, thread }: ThreadActionsProps) {
+  const postEvent = usePostEvent(docId);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
   const [note, setNote] = useState('');
+  const pending = postEvent.isPending;
+  const status = thread.status;
+
+  function mutate(event: Parameters<typeof postEvent.mutate>[0]) {
+    postEvent.mutate(event);
+  }
+
+  function closeDialog() {
+    setDialog(null);
+    setNote('');
+  }
+
+  function submitNote() {
+    const trimmed = note.trim() || undefined;
+    if (dialog === 'address') mutate({ type: 'addressed', thread: thread.thread, note: trimmed });
+    if (dialog === 'reopen') mutate({ type: 'reopen', thread: thread.thread, note: trimmed });
+    closeDialog();
+  }
+
+  const quick =
+    status === 'open'
+      ? { label: 'Mark addressed', fn: () => mutate({ type: 'addressed', thread: thread.thread }) }
+      : status === 'addressed'
+        ? { label: 'Resolve', fn: () => mutate({ type: 'resolve', thread: thread.thread }) }
+        : null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button size="sm" variant="ghost" disabled={pending}>
-          {label}
+    <div className="flex items-center gap-0.5">
+      {quick && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title={quick.label}
+          aria-label={quick.label}
+          disabled={pending}
+          onClick={quick.fn}
+        >
+          <Check className="size-3.5" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64">
-        <Textarea
-          autoFocus
-          rows={2}
-          placeholder={placeholder}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-        <div className="mt-2 flex justify-end">
-          <Button
-            size="sm"
-            onClick={() => {
-              onSubmit(note.trim());
-              setNote('');
-              setOpen(false);
-            }}
-          >
-            Confirm
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+      )}
+      <Popover open={dialog !== null} onOpenChange={(open) => !open && closeDialog()}>
+        <DropdownMenu>
+          <PopoverAnchor asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Thread actions"
+                disabled={pending}
+              >
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </PopoverAnchor>
+          <DropdownMenuContent align="end">
+            {status === 'open' && (
+              <>
+                <DropdownMenuItem onSelect={() => setDialog('address')}>
+                  Mark addressed…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => mutate({ type: 'resolve', thread: thread.thread })}>
+                  Resolve
+                </DropdownMenuItem>
+              </>
+            )}
+            {status === 'addressed' && (
+              <>
+                <DropdownMenuItem onSelect={() => mutate({ type: 'resolve', thread: thread.thread })}>
+                  Resolve
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setDialog('reopen')}>Reopen…</DropdownMenuItem>
+              </>
+            )}
+            {status === 'resolved' && (
+              <DropdownMenuItem onSelect={() => setDialog('reopen')}>Reopen…</DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={() => setDialog('delete')}>
+              Delete…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <PopoverContent align="end" className="w-64">
+          {dialog === 'delete' ? (
+            <>
+              <p className="text-xs text-muted-foreground">Delete this thread and its replies?</p>
+              <div className="mt-2.5 flex justify-end gap-1.5">
+                <Button size="sm" variant="ghost" onClick={closeDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    mutate({ type: 'delete', thread: thread.thread });
+                    closeDialog();
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Textarea
+                autoFocus
+                rows={2}
+                placeholder={dialog === 'address' ? 'Note (optional)' : 'Reason (optional)'}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    submitNote();
+                  }
+                }}
+              />
+              <div className="mt-2.5 flex justify-end gap-1.5">
+                <Button size="sm" variant="ghost" onClick={closeDialog}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={submitNote}>
+                  {dialog === 'address' ? 'Mark addressed' : 'Reopen'}
+                </Button>
+              </div>
+            </>
+          )}
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
