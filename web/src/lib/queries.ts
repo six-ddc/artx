@@ -11,6 +11,7 @@ export const queryKeys = {
   doc: (docId: string, rev?: string): QueryKey => ['doc', docId, rev],
   history: (docId: string): QueryKey => ['history', docId],
   comments: (docId: string): QueryKey => ['comments', docId],
+  raw: (docId: string): QueryKey => ['raw', docId],
 };
 
 export function useHealth() {
@@ -62,6 +63,28 @@ export function usePostEvent(docId: string) {
     mutationFn: (body: EventRequest) => api.postEvent(docId, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.comments(docId) });
+    },
+  });
+}
+
+/** Raw md source for the block editor; only fetched while edit mode is active. */
+export function useRawSource(docId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.raw(docId),
+    queryFn: () => api.raw(docId),
+    enabled: enabled && docId.length > 0,
+  });
+}
+
+/** md block edit write-back; both the rendered doc and the raw source are stale on success. */
+export function usePostBlock(docId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { start: number; end: number; original: string; content: string }) =>
+      api.postBlock(docId, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.doc(docId, undefined) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.raw(docId) });
     },
   });
 }

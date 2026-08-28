@@ -82,8 +82,10 @@ export function DocView() {
           {doc.type === 'md' ? (
             <MdCanvas
               doc={doc}
+              docId={docId}
               threads={threads}
               reviewMode={effectiveMode === 'review'}
+              editMode={effectiveMode === 'edit'}
               readOnly={readOnly}
               focusedThreadId={search.t}
               onFocusThread={focusThread}

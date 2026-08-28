@@ -354,6 +354,7 @@ Base URL: `http://127.0.0.1:7777` (can be changed by `--port` / vault config). A
 | GET | `/api/docs/{id}/history` | — | `{"commits":[{sha,subject,author,date}]}` |
 | GET | `/api/docs/{id}/comments` | — | `CommentsResponse` |
 | POST | `/api/docs/{id}/events` | `EventRequest` | `EventResponse` |
+| POST | `/api/docs/{id}/block` | `{start, end, original, content}` | md block-level source editing; `original` must equal the current `src[start:end]` byte slice (409 `conflict` otherwise) |
 | POST | `/api/compact` | `CompactRequest` | `CompactResponse` |
 | GET | `/api/stream` | — | SSE |
 | GET | `/raw/{id}/` | — | html artifact, reviewer script already injected |

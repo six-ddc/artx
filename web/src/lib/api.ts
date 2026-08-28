@@ -91,6 +91,22 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /** md block-level source editing: replace the data-sourcepos byte range [start, end). `original` proves freshness (409 on mismatch). */
+  postBlock: (id: string, body: { start: number; end: number; original: string; content: string }) =>
+    request<{ ok: string; commit: string }>(`${docPath(id)}/block`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** Raw source text, for the md block editor's byte-accurate slices. */
+  raw: async (id: string): Promise<string> => {
+    const res = await fetch(api.rawUrl(id), { credentials: 'same-origin' });
+    if (!res.ok) {
+      throw new ApiError(res.status, { error: 'internal', message: res.statusText || 'raw fetch failed' });
+    }
+    return res.text();
+  },
+
   /** Raw source bytes (`text/plain`), used by DocToolbar's raw link. */
   rawUrl: (id: string) => `${docPath(id)}/raw`,
 };

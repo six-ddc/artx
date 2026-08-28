@@ -338,6 +338,16 @@
   transform: rotate(-1deg);
   letter-spacing: -0.01em;
 }
+/* Edit-mode block hover (BlockEditLayer): the block under the pointer is a
+   click-to-edit target. Marker amber outline, matching the reviewer's html
+   element highlight so both doc types speak one language. */
+.art-edit-hover {
+  outline: 2px solid oklch(0.8 0.16 75 / 60%);
+  outline-offset: 4px;
+  border-radius: 0.25em;
+  cursor: pointer;
+}
+
 .art-anchor-approx {
   outline: 1.5px dashed var(--color-ink-3);
   outline-offset: 3px;

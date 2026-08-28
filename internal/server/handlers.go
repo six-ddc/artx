@@ -415,6 +415,78 @@ func (s *Server) handleDocEvents(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleDocBlock is the md counterpart of handleDocElement: block-level
+// source editing. The client addresses a block by its data-sourcepos byte
+// range and edits the SOURCE slice (never a rendered-HTML round-trip, which
+// cannot be mapped back to markdown losslessly). Freshness is proven by
+// echoing the original slice: a mismatch means the file changed since the
+// client rendered it — 409, reload and retry.
+func (s *Server) handleDocBlock(w http.ResponseWriter, r *http.Request) {
+	if s.vault == nil {
+		WriteError(w, http.StatusInternalServerError, api.ErrInternal, "vault unavailable")
+		return
+	}
+	id := r.PathValue("id")
+	if r.URL.Query().Get("v") != "" {
+		WriteError(w, http.StatusConflict, api.ErrConflict, "cannot write to a historical version")
+		return
+	}
+	a, err := s.vault.Lookup(id)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
+	if a.Type != api.DocTypeMD {
+		WriteError(w, http.StatusBadRequest, api.ErrBadRequest, "block edits only apply to md documents")
+		return
+	}
+
+	var req struct {
+		Start    int    `json:"start"`
+		End      int    `json:"end"`
+		Original string `json:"original"`
+		Content  string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, api.ErrBadRequest, "invalid json body")
+		return
+	}
+
+	src, err := s.vault.ReadSource(a)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
+	if req.Start < 0 || req.End < req.Start || req.End > len(src) {
+		WriteError(w, http.StatusBadRequest, api.ErrBadRequest, "block range out of bounds")
+		return
+	}
+	if string(src[req.Start:req.End]) != req.Original {
+		WriteError(w, http.StatusConflict, api.ErrConflict, "document changed since it was rendered; reload and retry")
+		return
+	}
+
+	out := make([]byte, 0, len(src)-(req.End-req.Start)+len(req.Content))
+	out = append(out, src[:req.Start]...)
+	out = append(out, req.Content...)
+	out = append(out, src[req.End:]...)
+	if err := os.WriteFile(a.Path, out, 0o644); err != nil {
+		WriteError(w, http.StatusInternalServerError, api.ErrInternal, err.Error())
+		return
+	}
+
+	var commitSHA string
+	if s.opts.Vault != nil && s.opts.Vault.Git != nil {
+		commitSHA, _ = s.opts.Vault.Git.Commit(r.Context(), gitx.CommitOptions{
+			Message: fmt.Sprintf("artx: edit block in %s", a.Slug),
+			Author:  gitx.AuthorHuman,
+			Paths:   []string{a.RelPath},
+		})
+	}
+	s.hub.Broadcast(api.SSEDoc, api.SSEDocChange{Doc: id, Kind: "content", Rev: commitSHA})
+	WriteJSON(w, http.StatusOK, map[string]any{"ok": "ok", "commit": commitSHA})
+}
+
 // handleDocElement implements the M2 milestone: in-browser direct editing of
 // html elements (blueprint §11).
 func (s *Server) handleDocElement(w http.ResponseWriter, r *http.Request) {

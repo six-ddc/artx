@@ -1,5 +1,6 @@
 import { useRef, type MouseEvent } from 'react';
 import type { DocDetail, SelectionInput, Thread } from '@/lib/types';
+import { BlockEditLayer } from './BlockEditLayer';
 import { HighlightLayer } from './HighlightLayer';
 import { SelectionPopover } from './SelectionPopover';
 import { MermaidMath } from './MermaidMath';
@@ -7,8 +8,10 @@ import { ReviewModeBar } from './ReviewModeBar';
 
 interface MdCanvasProps {
   doc: DocDetail;
+  docId: string;
   threads: Thread[];
   reviewMode: boolean;
+  editMode: boolean;
   readOnly: boolean;
   focusedThreadId?: string;
   onFocusThread: (threadId: string) => void;
@@ -17,8 +20,10 @@ interface MdCanvasProps {
 
 export function MdCanvas({
   doc,
+  docId,
   threads,
   reviewMode,
+  editMode,
   readOnly,
   focusedThreadId,
   onFocusThread,
@@ -30,6 +35,7 @@ export function MdCanvas({
   // the detailed note in SelectionPopover.tsx.
   const positionRef = useRef<HTMLDivElement>(null);
   const active = reviewMode && !readOnly;
+  const editing = editMode && !readOnly;
 
   // The reverse of HighlightLayer's echo: clicking a painted anchor focuses
   // its thread in the sidebar. Delegated, since the marks are re-created on
@@ -37,6 +43,7 @@ export function MdCanvas({
   // selector is attribute-only (not mark[...]): approx/orphan anchors carry
   // data-art-thread on the whole block, not on a <mark>.
   function onProseClick(e: MouseEvent<HTMLDivElement>) {
+    if (editing) return; // in edit mode a click means "edit this block", handled by BlockEditLayer
     const mark = (e.target as Element).closest?.('[data-art-thread]');
     const threadId = mark?.getAttribute('data-art-thread');
     if (threadId) onFocusThread(threadId);
@@ -78,6 +85,9 @@ export function MdCanvas({
             positionRef={positionRef}
             onStartComment={onStartComment}
           />
+        )}
+        {editing && (
+          <BlockEditLayer containerRef={containerRef} positionRef={positionRef} docId={docId} />
         )}
         <MermaidMath
           containerRef={containerRef}

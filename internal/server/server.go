@@ -292,6 +292,7 @@ func (s *Server) BaseURL() string {
 //	GET  /api/docs/{id}/comments
 //	POST /api/docs/{id}/events
 //	POST /api/docs/{id}/element      (M2)
+//	POST /api/docs/{id}/block        md block-level source editing
 //	POST /api/compact
 //	GET  /api/stream                  SSE
 //	GET  /raw/{id}/                   html artifact entry point, reviewer script injected
@@ -311,6 +312,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/docs/{id}/comments", s.handleDocComments)
 	mux.HandleFunc("POST /api/docs/{id}/events", s.handleDocEvents)
 	mux.HandleFunc("POST /api/docs/{id}/element", s.handleDocElement)
+	mux.HandleFunc("POST /api/docs/{id}/block", s.handleDocBlock)
 	mux.HandleFunc("POST /api/compact", s.handleCompact)
 	mux.HandleFunc("GET /api/stream", s.hub.ServeHTTP)
 	mux.HandleFunc("GET /raw/{id}/{path...}", s.handleRaw)

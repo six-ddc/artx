@@ -17,15 +17,17 @@ interface DocToolbarProps {
   readOnly: boolean;
 }
 
-const SEGMENTS: { mode: HtmlCanvasMode; label: string; htmlOnly?: boolean }[] = [
+const SEGMENTS: { mode: HtmlCanvasMode; label: string }[] = [
   { mode: 'browse', label: 'Browse' },
   { mode: 'review', label: 'Review' },
-  { mode: 'edit', label: 'Edit', htmlOnly: true },
+  // Edit applies to both types now: html = contenteditable element editing,
+  // md = block-level source-slice editing (BlockEditLayer).
+  { mode: 'edit', label: 'Edit' },
 ];
 
 export function DocToolbar({ docId, doc, rev, onRevChange, mode, onModeChange, readOnly }: DocToolbarProps) {
   const { data: history } = useHistory(docId);
-  const segments = SEGMENTS.filter((s) => !s.htmlOnly || doc.type === 'html');
+  const segments = SEGMENTS;
 
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-line pb-3">
