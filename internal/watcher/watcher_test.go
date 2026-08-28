@@ -98,7 +98,7 @@ func fixture(t *testing.T, typ, content string) (*Watcher, *vault.Artifact) {
 				return nil, nil
 			},
 			appendEvents: func(string, []eventlog.Event) error { return nil },
-			commit: func(context.Context, *vault.Artifact) (string, error) {
+			commit: func(context.Context, *vault.Artifact, commitSummary) (string, error) {
 				return "", nil
 			},
 			artifactAt: func(string) (*vault.Artifact, error) { return a, nil },
@@ -264,10 +264,20 @@ func TestProcessRemapsOnContentChange(t *testing.T) {
 		return nil
 	}
 
+	w.opts.AutoCommit = true
+	var commitMsg string
+	w.deps.commit = func(_ context.Context, a *vault.Artifact, sum commitSummary) (string, error) {
+		commitMsg = sum.message(a.Slug)
+		return "abc1234", nil
+	}
+
 	n := processOrSkip(t, w, a)
 
 	if n.Kind != kindRemap {
 		t.Fatalf("Kind should be %q after an anchor shift, got %q", kindRemap, n.Kind)
+	}
+	if want := "artx: update demo (1 comment remapped)"; commitMsg != want {
+		t.Errorf("auto-commit message = %q, want %q", commitMsg, want)
 	}
 	if n.Remaps != 1 || n.Orphans != 0 {
 		t.Fatalf("wrong counts: %+v", n)
@@ -280,6 +290,31 @@ func TestProcessRemapsOnContentChange(t *testing.T) {
 	}
 	if want := strings.Index(newSrc, anchored); appended[0].Start != want {
 		t.Fatalf("remap event's new start = %d, want %d", appended[0].Start, want)
+	}
+}
+
+func TestCommitSummaryMessage(t *testing.T) {
+	cases := []struct {
+		name string
+		sum  commitSummary
+		want string
+	}{
+		{"plain update", commitSummary{}, "artx: update demo"},
+		{"first version", commitSummary{firstVersion: true}, "artx: add demo"},
+		{"doc id restored", commitSummary{docIDRestored: true}, "artx: update demo (restore doc id)"},
+		{"element ids injected", commitSummary{elementIDsInjected: true}, "artx: update demo (inject element ids)"},
+		{"one remap", commitSummary{remapped: 1}, "artx: update demo (1 comment remapped)"},
+		{"remaps and orphans", commitSummary{remapped: 2, orphaned: 1}, "artx: update demo (2 comments remapped, 1 orphaned)"},
+		{"orphans only", commitSummary{orphaned: 2}, "artx: update demo (2 comments orphaned)"},
+		{"everything at once", commitSummary{docIDRestored: true, elementIDsInjected: true, remapped: 3},
+			"artx: update demo (restore doc id, inject element ids, 3 comments remapped)"},
+		{"first version with injection", commitSummary{firstVersion: true, elementIDsInjected: true},
+			"artx: add demo (inject element ids)"},
+	}
+	for _, tc := range cases {
+		if got := tc.sum.message("demo"); got != tc.want {
+			t.Errorf("%s: message = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }
 

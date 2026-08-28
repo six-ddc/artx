@@ -14,7 +14,7 @@ import (
 //
 // Compaction is the only operation allowed to rewrite existing event blocks,
 // so it must hold an exclusive flock, and it produces its own git commit on
-// completion: "artx: compact <docid>".
+// completion: "artx: compact <docid> (120 -> 8 events, 3 threads archived)".
 func newCompactCmd() *cobra.Command {
 	var doc string
 	var force bool
@@ -76,7 +76,7 @@ func newCompactCmd() *cobra.Command {
 					resp.Stats = append(resp.Stats, stat)
 					if !stat.Skipped && v.Git != nil {
 						if sha, cerr := v.Git.Commit(ctx, gitx.CommitOptions{
-							Message: fmt.Sprintf("artx: compact %s", id),
+							Message: eventlog.CompactMessage([]api.CompactStat{stat}),
 							Author:  gitx.AuthorArtx,
 						}); cerr == nil && sha != "" {
 							resp.Commit = sha

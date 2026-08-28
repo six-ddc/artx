@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,7 +93,7 @@ type deps struct {
 	// appendEvents persists remap/orphan events.
 	appendEvents func(docID string, evs []eventlog.Event) error
 	// commit performs the auto-commit, returning the new sha.
-	commit func(ctx context.Context, a *vault.Artifact) (string, error)
+	commit func(ctx context.Context, a *vault.Artifact, sum commitSummary) (string, error)
 	// artifactAt resolves a changed path to an artifact; returns nil for
 	// paths that are not an artifact.
 	artifactAt func(path string) (*vault.Artifact, error)
@@ -173,11 +174,11 @@ func realDeps(v *vault.Vault) deps {
 		}
 		return v.Store.Append(docID, evs...)
 	}
-	d.commit = func(ctx context.Context, a *vault.Artifact) (string, error) {
+	d.commit = func(ctx context.Context, a *vault.Artifact, sum commitSummary) (string, error) {
 		if v == nil || v.Git == nil || !v.Git.Available() {
 			return "", nil
 		}
-		return v.Git.Commit(ctx, gitCommitOptions(a))
+		return v.Git.Commit(ctx, gitCommitOptions(a, sum))
 	}
 	d.artifactAt = func(path string) (*vault.Artifact, error) {
 		if v == nil {
@@ -279,6 +280,7 @@ func (w *Watcher) Close() error {
 //  7. Assemble and Emit(Notice).
 func (w *Watcher) Process(ctx context.Context, a *vault.Artifact) (Notice, error) {
 	n := Notice{Kind: kindContent, DocID: a.ID, Path: a.Path}
+	var sum commitSummary
 
 	src, err := w.deps.readFile(a.Path)
 	if err != nil {
@@ -300,6 +302,7 @@ func (w *Watcher) Process(ctx context.Context, a *vault.Artifact) (Notice, error
 			return n, err
 		}
 		out, changed := res.Output, res.Changed
+		sum.elementIDsInjected = res.Changed
 
 		// vault.Scan reads the document id only from the file, so once the
 		// meta tag is gone, this artifact looks like a brand-new document
@@ -324,6 +327,7 @@ func (w *Watcher) Process(ctx context.Context, a *vault.Artifact) (Notice, error
 					return n, err
 				}
 				changed = true
+				sum.docIDRestored = true
 			}
 			a.ID, n.DocID = wantID, wantID
 		}
@@ -343,6 +347,10 @@ func (w *Watcher) Process(ctx context.Context, a *vault.Artifact) (Notice, error
 	if err != nil {
 		return n, err
 	}
+	// No previous version in git means this file was dropped into the vault
+	// by hand — `artx new` skeletons are committed at creation time — so the
+	// auto-commit is the one that first tracks it.
+	sum.firstVersion = len(old) == 0
 	if len(old) > 0 && !bytes.Equal(old, src) {
 		threads, err := w.deps.threads(ctx, a)
 		if err != nil {
@@ -380,7 +388,8 @@ func (w *Watcher) Process(ctx context.Context, a *vault.Artifact) (Notice, error
 	// dead right after you edit the file." The self-write mark belongs
 	// only to the actual write-back in step 2.
 	if w.opts.AutoCommit {
-		sha, err := w.deps.commit(ctx, a)
+		sum.remapped, sum.orphaned = n.Remaps, n.Orphans
+		sha, err := w.deps.commit(ctx, a, sum)
 		if err != nil {
 			return n, err
 		}
@@ -596,10 +605,62 @@ func slugOf(root, path string) string {
 	return ""
 }
 
+// commitSummary records what a processing pass actually did, so the
+// auto-commit message can say more than a bare "update".
+type commitSummary struct {
+	firstVersion       bool // the file had no previous version in git
+	docIDRestored      bool // the <meta name="aid"> doc id was re-established
+	elementIDsInjected bool // htmlaid.Inject added element ids
+	remapped           int  // threads moved/revived this pass
+	orphaned           int  // threads orphaned this pass
+}
+
+// message renders the one-line commit subject: an add/update verb plus a
+// parenthesized summary of everything notable this pass did, e.g.
+// "artx: update design-doc (restore doc id, 2 comments remapped, 1 orphaned)".
+func (s commitSummary) message(slug string) string {
+	verb := "update"
+	if s.firstVersion {
+		verb = "add"
+	}
+
+	var parts []string
+	if s.docIDRestored {
+		parts = append(parts, "restore doc id")
+	}
+	if s.elementIDsInjected {
+		parts = append(parts, "inject element ids")
+	}
+	if s.remapped > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s remapped", s.remapped, plural(s.remapped, "comment")))
+	}
+	if s.orphaned > 0 {
+		if s.remapped > 0 {
+			// "comments" is already named by the remap part.
+			parts = append(parts, fmt.Sprintf("%d orphaned", s.orphaned))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d %s orphaned", s.orphaned, plural(s.orphaned, "comment")))
+		}
+	}
+
+	msg := "artx: " + verb + " " + slug
+	if len(parts) > 0 {
+		msg += " (" + strings.Join(parts, ", ") + ")"
+	}
+	return msg
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return word
+	}
+	return word + "s"
+}
+
 // gitCommitOptions is the fixed shape of the watcher's auto-commit.
 // The author is always AuthorArtx: this commit is art itself wrapping up
 // (settling an aid injection / remap), not an agent or a human writing content.
-func gitCommitOptions(a *vault.Artifact) gitx.CommitOptions {
+func gitCommitOptions(a *vault.Artifact, sum commitSummary) gitx.CommitOptions {
 	// The scope is "this artifact's directory + .artx/comments", not `git add -A`.
 	//
 	// Including .artx/comments is required: the remap/orphan events appended
@@ -614,7 +675,7 @@ func gitCommitOptions(a *vault.Artifact) gitx.CommitOptions {
 	// do with it — that's exactly how an html document's id recovery
 	// baseline gets lost.
 	return gitx.CommitOptions{
-		Message: "artx: update " + a.Slug,
+		Message: sum.message(a.Slug),
 		Author:  gitx.AuthorArtx,
 		Paths:   []string{a.Slug, eventlog.CommentsDir},
 	}
