@@ -451,6 +451,14 @@ art-icon svg {
   padding-top: calc(0.08rem + 0.135em);
   padding-bottom: calc(0.08rem + 0.035em);
 }
+/* addressed: the agent says it's handled and only verification remains, so
+   the marker fades to a whisper — findable when you look for it, quiet
+   when you read past it. Hover/focus below still restore the full fill
+   (they win by cascade order). resolved paints nothing at all (see
+   HighlightLayer). */
+.art-anchor-exact.art-anchor-addressed {
+  background-color: oklch(0.8 0.16 75 / 13%);
+}
 .art-anchor-exact:hover {
   background-color: var(--marker-highlight-bg);
   color: var(--marker-highlight-fg);

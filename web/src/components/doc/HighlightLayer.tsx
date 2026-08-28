@@ -11,6 +11,7 @@ import type { Thread } from '@/lib/types';
 const EXACT_CLASS = 'art-anchor-exact';
 const APPROX_CLASS = 'art-anchor-approx';
 const FOCUS_CLASS = 'art-anchor-focused';
+const ADDRESSED_CLASS = 'art-anchor-addressed';
 const MARK_ATTR = 'data-art-thread';
 
 interface BlockPos {
@@ -258,6 +259,14 @@ export function HighlightLayer({ containerRef, threads, focusedThreadId, html }:
       if (thread.anchor.kind !== 'text') continue;
       const { start, end, exact, orphan, approx } = thread.anchor;
       const focused = thread.thread === focusedThreadId;
+      // Highlight lifecycle follows status (the Docs/Notion convention): a
+      // highlight means "something here still needs attention". open is the
+      // full marker, addressed fades to a whisper (agent says it's handled,
+      // you may still want to verify against the text), resolved carries no
+      // standing highlight at all — focusing its card from the sidebar
+      // re-lights the spot temporarily so it stays findable, and reopen
+      // brings the highlight back for real.
+      if (thread.status === 'resolved' && !focused) continue;
       const block = findCoveringBlock(root, start, end);
 
       if (orphan || approx || !exact) {
@@ -273,7 +282,10 @@ export function HighlightLayer({ containerRef, threads, focusedThreadId, html }:
 
       const marks = wrapRangeTextNodes(range, () => {
         const mark = document.createElement('mark');
-        mark.className = focused ? `${EXACT_CLASS} ${FOCUS_CLASS}` : EXACT_CLASS;
+        const classes = [EXACT_CLASS];
+        if (thread.status === 'addressed') classes.push(ADDRESSED_CLASS);
+        if (focused) classes.push(FOCUS_CLASS);
+        mark.className = classes.join(' ');
         mark.setAttribute(MARK_ATTR, thread.thread);
         return mark;
       });

@@ -58,8 +58,15 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
     return () => window.clearTimeout(t);
   }, [saveNotice]);
 
+  // Same highlight lifecycle as the md canvas: resolved threads carry no
+  // standing highlight, but focusing one re-lights its element.
   const aidsWithThreads = threads
-    .filter((t) => t.anchor.kind === 'element' && t.anchor.aid)
+    .filter(
+      (t) =>
+        t.anchor.kind === 'element' &&
+        t.anchor.aid &&
+        (t.status !== 'resolved' || t.thread === focusedThreadId),
+    )
     .map((t) => t.anchor.aid as string);
 
   // Direct per-message delivery (see frame-bridge.ts: a lastMessage state
