@@ -89,6 +89,11 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
+	// Firefox doesn't fire EventSource 'open' until the first body bytes
+	// arrive (Chrome fires it on headers), so an immediate ping is required —
+	// waiting for the first PingInterval tick leaves Firefox stuck in
+	// "connecting" for 25s.
+	writeSSE(w, api.SSEPing, struct{}{})
 	flusher.Flush()
 
 	sub := h.subscribe()

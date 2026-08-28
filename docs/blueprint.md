@@ -204,7 +204,7 @@ func (s *Store) NeedsCompact(docID string, opts CompactOptions) (bool, error)
 ```go
 const ArtDir, AssetsDir, AgentsFile, IndexMD, IndexHTML
 const FrontmatterAIDKey = "aid"; const MetaAIDName = "aid"
-var ErrNotFound, ErrExists, ErrOutsideVault, ErrInsideRepo
+var ErrNotFound, ErrExists, ErrOutsideVault, ErrInsideRepo, ErrNotEmpty
 
 type Vault struct{ Root, Name string; Cfg *config.Vault; Store *eventlog.Store; Git *gitx.Repo }
 type Artifact struct{ ID, Slug, Type, Dir, Path, RelPath, Title string }

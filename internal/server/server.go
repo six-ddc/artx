@@ -211,20 +211,37 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	httpSrv := &http.Server{Handler: s.Handler()}
+	// Request contexts must derive from runCtx: Shutdown never cancels
+	// in-flight requests, so without this the endless SSE streams keep it
+	// blocked until its timeout expires (~5s on every Ctrl-C).
+	httpSrv := &http.Server{
+		Handler:     s.Handler(),
+		BaseContext: func(net.Listener) context.Context { return runCtx },
+	}
 	errCh := make(chan error, 1)
 	go func() { errCh <- httpSrv.Serve(ln) }()
 
 	select {
 	case <-ctx.Done():
+		log.Printf("artx: shutting down")
+		start := time.Now()
 		shutdownCtx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel2()
-		_ = httpSrv.Shutdown(shutdownCtx)
+		if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+			// Timed out waiting on connections that runCtx cancellation didn't
+			// unblock; force-close them rather than leaking past our exit.
+			log.Printf("artx: http shutdown incomplete after %s: %v", time.Since(start).Round(time.Millisecond), err)
+			_ = httpSrv.Close()
+		}
+		httpDone := time.Now()
 		s.mu.Lock()
 		if s.wch != nil {
 			_ = s.wch.Close()
 		}
 		s.mu.Unlock()
+		log.Printf("artx: shutdown complete (http %s, watcher %s)",
+			httpDone.Sub(start).Round(time.Millisecond),
+			time.Since(httpDone).Round(time.Millisecond))
 		return nil
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {

@@ -27,13 +27,17 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 h-12 border-b border-line bg-desk/90 backdrop-blur">
       <div className="mx-auto flex h-full max-w-6xl items-center gap-4 px-4 sm:px-6">
-        <Link to="/" className="art-mono flex items-baseline gap-2.5 lowercase">
+        <Link to="/" className="art-mono flex items-baseline gap-2.5">
           {/* The one branding flourish: the whole wordmark struck by the
               highlighter — the logo is the product's core action itself,
               same fixed marker-pen colors as the anchor highlight (see
               .art-wordmark in styles.css). */}
-          <span className="art-wordmark text-base font-semibold">artx</span>
-          <span className="truncate text-xs text-ink-2">~/{health?.vault ?? '…'}</span>
+          <span className="art-wordmark text-base font-semibold lowercase">artx</span>
+          {/* The vault's registry name, verbatim — a ~/ prefix or forced
+              lowercase would make it read as a filesystem path it isn't. */}
+          <span className="truncate text-xs text-ink-2" title={health?.root}>
+            {health?.vault ?? '…'}
+          </span>
         </Link>
 
         {onIndex && (

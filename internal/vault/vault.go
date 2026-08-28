@@ -53,6 +53,10 @@ var ErrOutsideVault = errors.New("vault: path escapes vault root")
 // git repository — a vault must be its own standalone repo.
 var ErrInsideRepo = errors.New("vault: directory is inside an existing git repository")
 
+// ErrNotEmpty indicates init refused to create a vault in a directory that
+// already holds data — a vault must start in a new or empty directory.
+var ErrNotEmpty = errors.New("vault: directory is not empty")
+
 // Vault is a located vault.
 type Vault struct {
 	Root  string
@@ -107,15 +111,17 @@ func Discover(explicit string) (*Vault, error) {
 // InitOptions configures Init.
 type InitOptions struct {
 	Name  string // registry name; defaults to the directory's basename
-	Force bool   // skip the refusal to create a vault inside an existing git repository
+	Force bool   // skip the inside-a-repo and non-empty refusals
 }
 
 // Init sets up a new vault at dir: directory skeleton, .artx/config.yaml,
 // .gitattributes, the AGENTS.md template, git init, and a global registry
-// entry. Idempotent if dir is already a vault. Unless opts.Force is set, it
-// refuses to create a new vault inside an existing git worktree — a vault
+// entry. Idempotent if dir is already a vault. Unless opts.Force is set, the
+// target must be fresh ground: not inside an existing git worktree (a vault
 // must be its own standalone repo, or artx's machine commits would interleave
-// with (and sweep up staged changes of) an unrelated project's history.
+// with — and sweep up staged changes of — an unrelated project's history),
+// and either absent, empty, or an existing vault (so a data directory is
+// never silently annexed).
 func Init(ctx context.Context, dir string, opts InitOptions) (*Vault, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -123,10 +129,19 @@ func Init(ctx context.Context, dir string, opts InitOptions) (*Vault, error) {
 	}
 
 	// Refuse before creating anything, so a refusal leaves no trace. An
-	// existing vault skips the check: its own repo would trip it.
+	// existing vault skips both checks: its own repo and contents would
+	// trip them.
 	if _, statErr := os.Stat(filepath.Join(abs, config.VaultConfigPath)); os.IsNotExist(statErr) && !opts.Force {
 		if top := gitx.Toplevel(ctx, nearestExistingDir(abs)); top != "" {
 			return nil, fmt.Errorf("vault: %s is inside the git repository at %s; a vault must be its own standalone repo (use --force to override): %w", abs, top, ErrInsideRepo)
+		}
+		if entries, readErr := os.ReadDir(abs); readErr == nil {
+			for _, e := range entries {
+				if e.Name() == ".DS_Store" {
+					continue
+				}
+				return nil, fmt.Errorf("vault: %s is not empty; a vault must start in a new or empty directory (use --force to override): %w", abs, ErrNotEmpty)
+			}
 		}
 	}
 

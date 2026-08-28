@@ -108,6 +108,36 @@ func TestInitRefusesInsideRepo(t *testing.T) {
 	}
 }
 
+func TestInitRefusesNonEmpty(t *testing.T) {
+	isolateRegistry(t)
+	ctx := context.Background()
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Init(ctx, dir, InitOptions{}); !errors.Is(err, ErrNotEmpty) {
+		t.Fatalf("Init in a non-empty dir: err = %v, want ErrNotEmpty", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ArtDir)); !os.IsNotExist(err) {
+		t.Errorf("refused Init left %s behind", ArtDir)
+	}
+
+	// Finder droppings don't count as data.
+	dsOnly := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dsOnly, ".DS_Store"), []byte{0}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Init(ctx, dsOnly, InitOptions{}); err != nil {
+		t.Fatalf("Init with only .DS_Store present: %v", err)
+	}
+
+	// Force overrides.
+	if _, err := Init(ctx, dir, InitOptions{Force: true}); err != nil {
+		t.Fatalf("Init with Force in a non-empty dir: %v", err)
+	}
+}
+
 func TestInitForceInsideRepo(t *testing.T) {
 	isolateRegistry(t)
 	repo := newGitRepo(t)

@@ -8,7 +8,11 @@ LDFLAGS := -X $(PKG)/internal/version.Version=$(VERSION) -X $(PKG)/internal/vers
 DIST        := internal/server/dist
 PLACEHOLDER := scripts/placeholder.html
 
-.PHONY: all build web go-build test vet fmt clean dev placeholder check e2e smoke
+# Where make install puts the binary: GOBIN when set, else GOPATH/bin — the
+# directory go install itself would use. Override: make install INSTALL_DIR=…
+INSTALL_DIR ?= $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
+
+.PHONY: all build web go-build install test vet fmt clean dev placeholder check e2e smoke
 
 all: build
 
@@ -26,6 +30,12 @@ web:
 go-build:
 	mkdir -p bin
 	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/artx
+
+## install: full build (frontend + binary), then install into $(INSTALL_DIR)
+install: build
+	install -d $(INSTALL_DIR)
+	install -m 0755 $(BIN) $(INSTALL_DIR)/artx
+	@echo "installed $(INSTALL_DIR)/artx"
 
 ## placeholder: restore the embed directory to the placeholder page. Useful for
 ## working without a frontend toolchain, and for cleaning the tree after
