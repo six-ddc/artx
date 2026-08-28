@@ -540,6 +540,15 @@ This satisfies the resolution to "ship mermaid/katex in M1", adds no fork to the
 
 Both libraries are lazy-loaded with Vite's dynamic `import()` (mermaid is ~3MB), pulled only when `DocDetail.has_mermaid` / `has_math` is true. **No CDN** — the binary must run offline.
 
+### 6.6b markdown component layer: alerts, syntax highlighting, emoji, inline icons
+
+Everything here lives inside `mdsrc.NewMarkdown()` (or is a pure frontend enhancement), so render and anchor keep sharing one factory and the sourcepos contract is untouched.
+
+- **GitHub-style alerts** (`> [!NOTE]` / TIP / IMPORTANT / WARNING / CAUTION, case-insensitive, marker alone on its first line): implemented in-house in `mdsrc/alerts.go` rather than via a third-party extension, because the anchor system imposes two constraints nobody else honors: the node **stays a `Blockquote`** (block table and `data-sourcepos` are byte-identical to a plain quote, existing anchors survive), and only the marker's *inline* nodes are stripped (the block's sourcepos span still covers the `[!NOTE]` line, so block-level editing round-trips the full source). The title row (`<p class="art-alert-title">` + inline lucide SVG) carries no sourcepos and is therefore not an edit target. Styling: a card, not a stripe — kind is carried by icon + small-caps mono label + faint wash; kind colors come only from the existing token set (note=ink, tip=resolved, important=addressed, warning=marker, caution=danger).
+- **Syntax highlighting**: server-side chroma in **class mode** (`mdsrc/highlight.go`), inside the existing `codeBlockRenderer` so `<pre data-sourcepos><code class="language-x chroma">` keeps its shape; colors live in `styles.css` keyed off theme tokens, so light/dark is a pure CSS concern. Unknown languages and bare fences fall back to the exact pre-highlighting escaped output; `language-mermaid` is skipped entirely (the frontend replaces that `<pre>` wholesale).
+- **Emoji shortcodes** (`:rocket:`): the upstream `goldmark-emoji` extension; inline-only, no block table impact.
+- **Inline icons**: no markdown syntax was invented — `WithUnsafe()` already passes raw HTML, so agents write `<art-icon name="check"></art-icon>` and a web component (`web/src/lib/art-icon.ts`, bundled lucide subset, offline) upgrades it in place whenever MdCanvas swaps innerHTML. Two authoring rules: always write the explicit closing tag (custom elements never self-close; the component self-heals the mistake by moving swallowed content back out), and **icons are decorative** — they carry no source text, so a selection spanning one degrades to approximate anchoring; never let an icon replace a load-bearing word. The same degradation applies to emoji shortcodes and the alert title row: rendered text that differs from source text is fine *around* an anchor but must not *be* the anchor.
+
 ### 6.7 id scheme: random base36 throughout
 
 Design doc §13, resolution 1 only specifies that doc ids are random. **This blueprint extends that to thread and reply ids**:
@@ -581,25 +590,26 @@ The backend falls back to `index.html` for every path other than `/api`, `/raw`,
 ### 7.2 Component tree
 
 ```
-RootLayout                      // mounts useEventStream()
-├── Header                      // vault name, search, SSE connection dot
+RootLayout                      // mounts useEventStream(); main is full-bleed, routes own their width
+├── Header                      // single topbar: wordmark, search (index), portal slot (doc), SSE dot
 └── <Outlet>
     ├── DocsIndex
     │   └── DocCard[]           // title, type, open count, updated time
-    └── DocView
-        ├── DocToolbar          // title, version picker (?v=), raw link, review mode toggle
-        ├── <main>
+    └── DocView                             // no mode switch: selection = comment, gutter pencil = edit
+        ├── DocHeaderBar        // → portaled into Header's slot: title, version picker (?v=), raw link, comments toggle
+        ├── <main>                          // the page below the topbar IS the sheet (no paper box)
         │   ├── MdCanvas                    // type === 'md'
         │   │   ├── (dangerouslySetInnerHTML: DocDetail.html)   ← R1
         │   │   ├── HighlightLayer          // draws highlights for existing comments by anchor.start/end
-        │   │   ├── SelectionPopover        // floats a "Comment" button over the selection
+        │   │   ├── SelectionPopover        // floats a "Comment" button over any selection (unless readOnly)
+        │   │   ├── BlockEditLayer          // gutter pencil on block hover → in-place source-slice editor
         │   │   └── MermaidMath             // lazy-loaded mermaid / katex post-processing
-        │   └── HtmlCanvas                  // type === 'html'
-        │       ├── <iframe sandbox="allow-scripts" src={raw_url}>
+        │   └── HtmlCanvas                  // type === 'html'; floating cursor-tool pill: Interact / Comment / Edit
+        │       ├── <iframe sandbox="allow-scripts" src={raw_url}>   // pickers are one-shot, Esc returns to Interact
         │       ├── FrameBridge             // postMessage send/receive
         │       ├── HoverOutline            // draws the outline from HoverMsg.rect
         │       └── ElementPopover          // opens the comment box on PickMsg
-        └── ThreadSidebar
+        └── ThreadSidebar                   // toggleable drawer: lg = docked right column, below lg = overlay + scrim
             ├── ThreadFilter                // open / addressed / resolved / all
             └── ThreadCard[]
                 ├── AnchorPreview           // exact + orphan hint
@@ -663,7 +673,7 @@ Types are defined in `web/src/lib/protocol.ts` (frozen). Every message carries t
 1. The iframe uses `sandbox="allow-scripts"` **without** `allow-same-origin`, so its origin is the string `"null"`. The shell **must** validate messages with `event.source === iframeEl.contentWindow`, and **must never** write `event.origin === location.origin` (which is never true). The shell sends messages with `postMessage(msg, '*')`.
 2. The reviewer script stays **vanilla, zero-dependency** (R2). `protocol.ts` contains only type declarations and leaves no runtime code after compilation, so the reviewer may `import type` from it but must not import any value.
 
-Reviewer behavior: in `review` mode, on `mouseover` it walks up to the nearest element carrying `data-aid` and sends `hover`; on `click` it calls `preventDefault` and sends `pick` (with an element text summary and the selection quote). In `browse` mode it does not interfere with the page at all. It sends `size` via `ResizeObserver`.
+Reviewer behavior: in `review` mode, on `mouseover` it walks up to the nearest element carrying `data-aid` and sends `hover`; on `click` it calls `preventDefault` and sends `pick` (with an element text summary and the selection quote). In `browse` mode it does not interfere with the page at all — except Alt+hover/Alt+click, which previews and picks an element for commenting without switching tools (the shell maps its cursor tools Interact/Comment/Edit onto the protocol's browse/review/edit). Picker modes set a crosshair cursor on the whole page. It sends `size` via `ResizeObserver`.
 
 ---
 

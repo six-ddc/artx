@@ -1,7 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useDocs } from '@/lib/queries';
 import { useDocsSearch } from '@/components/layout/docs-search-context';
 import { DocCard } from '@/components/docs/DocCard';
+
+/** The index owns its centered column (RootLayout's main is full-bleed so the doc route can be). */
+function Shell({ children }: { children: ReactNode }) {
+  return <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</div>;
+}
 
 export function DocsIndex() {
   const { data, isPending, isError, error } = useDocs();
@@ -20,32 +25,48 @@ export function DocsIndex() {
   }, [allDocs, query]);
 
   if (isPending) {
-    return <p className="text-sm text-ink-2">Loading…</p>;
+    return (
+      <Shell>
+        <p className="text-sm text-ink-2">Loading…</p>
+      </Shell>
+    );
   }
   if (isError) {
-    return <p className="text-sm text-danger">Failed to load: {error.message}</p>;
+    return (
+      <Shell>
+        <p className="text-sm text-danger">Failed to load: {error.message}</p>
+      </Shell>
+    );
   }
 
   if (docs.length === 0) {
     if (query) {
-      return <p className="text-sm text-ink-2">No documents match "{query}"</p>;
+      return (
+        <Shell>
+          <p className="text-sm text-ink-2">No documents match "{query}"</p>
+        </Shell>
+      );
     }
     // Empty vault: for this audience, a one-line command to copy-paste is the best onboarding.
     return (
-      <div className="border border-line bg-sheet px-4 py-6 text-sm text-ink-2">
-        <p>This vault has no documents yet.</p>
-        <pre className="art-mono mt-3 overflow-x-auto rounded border border-line bg-muted px-3 py-2 text-xs text-ink">
-          artx new &lt;slug&gt; --type md --json
-        </pre>
-      </div>
+      <Shell>
+        <div className="border border-line bg-sheet px-4 py-6 text-sm text-ink-2">
+          <p>This vault has no documents yet.</p>
+          <pre className="art-mono mt-3 overflow-x-auto rounded border border-line bg-muted px-3 py-2 text-xs text-ink">
+            artx new &lt;slug&gt; --type md --json
+          </pre>
+        </div>
+      </Shell>
     );
   }
 
   return (
-    <div className="border-t border-line">
-      {docs.map((doc) => (
-        <DocCard key={doc.id} doc={doc} />
-      ))}
-    </div>
+    <Shell>
+      <div className="border-t border-line">
+        {docs.map((doc) => (
+          <DocCard key={doc.id} doc={doc} />
+        ))}
+      </div>
+    </Shell>
   );
 }

@@ -4,6 +4,7 @@ import { useHealth } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { useSSEStatus } from './sse-status-context';
 import { useDocsSearch } from './docs-search-context';
+import { useHeaderSlot } from './header-slot-context';
 
 const STATUS_LABEL: Record<string, string> = {
   connecting: 'Connecting',
@@ -21,23 +22,28 @@ export function Header() {
   const { data: health } = useHealth();
   const status = useSSEStatus();
   const { query, setQuery } = useDocsSearch();
+  const { setEl } = useHeaderSlot();
   const location = useLocation();
   const onIndex = location.pathname === '/';
 
   return (
-    <header className="sticky top-0 z-10 h-12 border-b border-line bg-desk/90 backdrop-blur">
-      <div className="mx-auto flex h-full max-w-6xl items-center gap-4 px-4 sm:px-6">
-        <Link to="/" className="art-mono flex items-baseline gap-2.5">
+    <header className="sticky top-0 z-40 h-12 border-b border-line bg-desk/90 backdrop-blur">
+      <div className="flex h-full items-center gap-3 px-4 sm:px-5">
+        <Link to="/" className="art-mono flex shrink-0 items-baseline gap-2.5">
           {/* The one branding flourish: the whole wordmark struck by the
               highlighter — the logo is the product's core action itself,
               same fixed marker-pen colors as the anchor highlight (see
               .art-wordmark in styles.css). */}
           <span className="art-wordmark text-base font-semibold lowercase">artx</span>
           {/* The vault's registry name, verbatim — a ~/ prefix or forced
-              lowercase would make it read as a filesystem path it isn't. */}
-          <span className="truncate text-xs text-ink-2" title={health?.root}>
-            {health?.vault ?? '…'}
-          </span>
+              lowercase would make it read as a filesystem path it isn't.
+              Index only: on a doc page the slot's breadcrumbed title takes
+              this spot. */}
+          {onIndex && (
+            <span className="truncate text-xs text-ink-2" title={health?.root}>
+              {health?.vault ?? '…'}
+            </span>
+          )}
         </Link>
 
         {onIndex && (
@@ -52,7 +58,10 @@ export function Header() {
           </div>
         )}
 
-        <div className="art-mono ml-auto flex items-center gap-2 text-[11px] text-ink-2">
+        {/* Portal target: the doc route mounts its title + controls here (see DocHeaderBar). */}
+        <div ref={setEl} className="flex h-full min-w-0 flex-1 items-center gap-2.5" />
+
+        <div className="art-mono flex shrink-0 items-center gap-2 text-[11px] text-ink-2">
           <span
             className={cn('size-1.5 rounded-full', STATUS_DOT[status])}
             title={STATUS_LABEL[status]}

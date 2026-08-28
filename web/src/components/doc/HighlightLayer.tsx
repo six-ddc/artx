@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import type { Thread } from '@/lib/types';
 
 // Highlight echo (§7.4): ThreadAnchor.start/end are **source file** byte
@@ -226,9 +226,18 @@ interface HighlightLayerProps {
 }
 
 export function HighlightLayer({ containerRef, threads, focusedThreadId, html }: HighlightLayerProps) {
+  // Scrolling belongs to the moment focus CHANGES, not to every repaint:
+  // the effect also re-runs when the thread list refreshes (e.g. right
+  // after submitting a new comment), and scrolling then would yank the
+  // page back to whatever thread happened to be focused earlier.
+  const lastScrolledFocus = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
+
+    const scrollOnFocus = focusedThreadId !== lastScrolledFocus.current;
+    lastScrolledFocus.current = focusedThreadId;
 
     clearMarks(root);
 
@@ -241,7 +250,7 @@ export function HighlightLayer({ containerRef, threads, focusedThreadId, html }:
       if (!block.hasAttribute(MARK_ATTR)) block.setAttribute(MARK_ATTR, threadId);
       if (focused) {
         block.classList.add(FOCUS_CLASS);
-        block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (scrollOnFocus) block.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     };
 
@@ -272,7 +281,7 @@ export function HighlightLayer({ containerRef, threads, focusedThreadId, html }:
         markApprox(block, thread.thread, focused);
         continue;
       }
-      if (focused) marks[0]!.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (focused && scrollOnFocus) marks[0]!.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     return () => clearMarks(root);

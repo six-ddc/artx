@@ -39,6 +39,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/yuin/goldmark"
+	emoji "github.com/yuin/goldmark-emoji"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
@@ -100,13 +101,22 @@ func NewContext(bodyOffset int) parser.Context {
 // block boundaries will drift out of sync with the anchor system.
 func NewMarkdown() goldmark.Markdown {
 	return goldmark.New(
-		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithExtensions(extension.GFM, emoji.Emoji),
 		goldmark.WithParserOptions(
-			parser.WithASTTransformers(util.Prioritized(&sourcePosTransformer{}, 999)),
+			parser.WithASTTransformers(
+				// alertTransformer only strips inline marker nodes, so its
+				// order relative to sourcePosTransformer (which reads block
+				// Lines() only) is immaterial; it runs first for clarity.
+				util.Prioritized(&alertTransformer{}, 500),
+				util.Prioritized(&sourcePosTransformer{}, 999),
+			),
 		),
 		goldmark.WithRendererOptions(
 			html.WithUnsafe(),
-			renderer.WithNodeRenderers(util.Prioritized(&codeBlockRenderer{}, 100)),
+			renderer.WithNodeRenderers(
+				util.Prioritized(&codeBlockRenderer{}, 100),
+				util.Prioritized(&alertRenderer{}, 100),
+			),
 		),
 	)
 }
@@ -447,19 +457,36 @@ func (r *codeBlockRenderer) render(w util.BufWriter, source []byte, n ast.Node, 
 			_, _ = w.WriteString(`"`)
 		}
 	}
-	_, _ = w.WriteString("><code")
+	var lang []byte
 	if f, ok := n.(*ast.FencedCodeBlock); ok {
-		if lang := f.Language(source); lang != nil {
-			_, _ = w.WriteString(` class="language-`)
-			_, _ = w.Write(util.EscapeHTML(lang))
-			_, _ = w.WriteString(`"`)
-		}
+		lang = f.Language(source)
 	}
-	_, _ = w.WriteString(">")
+	var code bytes.Buffer
 	lines := n.Lines()
 	for i := 0; i < lines.Len(); i++ {
 		s := lines.At(i)
-		_, _ = w.Write(util.EscapeHTML(s.Value(source)))
+		code.Write(s.Value(source))
+	}
+	// mermaid stays untouched: the frontend replaces that <pre> wholesale
+	// (MermaidMath), so wrapping its text in token spans is pure waste.
+	var highlighted []byte
+	if len(lang) > 0 && string(lang) != "mermaid" {
+		highlighted = highlight(string(lang), code.Bytes())
+	}
+	_, _ = w.WriteString("><code")
+	if lang != nil {
+		_, _ = w.WriteString(` class="language-`)
+		_, _ = w.Write(util.EscapeHTML(lang))
+		if highlighted != nil {
+			_, _ = w.WriteString(` chroma`)
+		}
+		_, _ = w.WriteString(`"`)
+	}
+	_, _ = w.WriteString(">")
+	if highlighted != nil {
+		_, _ = w.Write(highlighted)
+	} else {
+		_, _ = w.Write(util.EscapeHTML(code.Bytes()))
 	}
 	return ast.WalkSkipChildren, nil
 }

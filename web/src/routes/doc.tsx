@@ -3,9 +3,9 @@ import { getRouteApi } from '@tanstack/react-router';
 import type { SelectionInput } from '@/lib/types';
 import { useComments, useDoc } from '@/lib/queries';
 import { clearPendingHighlight, setPendingHighlight } from '@/lib/pending-highlight';
-import { DocToolbar } from '@/components/doc/DocToolbar';
+import { DocHeaderBar } from '@/components/doc/DocHeaderBar';
 import { MdCanvas } from '@/components/doc/MdCanvas';
-import { HtmlCanvas, type HtmlCanvasMode } from '@/components/doc/HtmlCanvas';
+import { HtmlCanvas } from '@/components/doc/HtmlCanvas';
 import { ThreadSidebar } from '@/components/threads/ThreadSidebar';
 import { CommentComposer } from '@/components/threads/CommentComposer';
 
@@ -22,20 +22,32 @@ export function DocView() {
   const { docId } = routeApi.useParams();
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const [mode, setMode] = useState<HtmlCanvasMode>('browse');
   // The in-flight new comment: anchor input captured from a selection,
-  // composing in the sidebar while the prose shows the pending highlight.
+  // composing in the drawer while the prose shows the pending highlight.
   const [pending, setPending] = useState<SelectionInput | null>(null);
+  // The comments drawer: null = the user hasn't chosen yet, so it defaults
+  // to open exactly when the doc has open threads — a clean doc reads as a
+  // plain page, a doc under review leads with its marginalia.
+  const [commentsChoice, setCommentsChoice] = useState<boolean | null>(null);
 
   const readOnly = Boolean(search.v);
   const docQuery = useDoc(docId, search.v);
   const commentsQuery = useComments(docId);
+  const threads = commentsQuery.data?.threads ?? [];
+  const openCount = threads.filter((t) => t.status === 'open').length;
+  const commentsOpen = commentsChoice ?? openCount > 0;
 
   // The pending highlight lives in the global CSS highlight registry, not
   // React state — clear it whenever this view unmounts or switches docs.
   useEffect(() => {
     return () => clearPendingHighlight();
   }, [docId]);
+
+  // Focusing a thread (clicking a highlight in the prose, or arriving with
+  // ?t=) must surface its card even when the drawer is closed.
+  useEffect(() => {
+    if (search.t) setCommentsChoice(true);
+  }, [search.t]);
 
   function setRev(rev: string | undefined) {
     void navigate({ search: (prev) => ({ ...prev, v: rev }) });
@@ -48,6 +60,7 @@ export function DocView() {
   function startComment(selection: SelectionInput, range: Range) {
     setPendingHighlight(range);
     setPending(selection);
+    setCommentsChoice(true); // the composer lives in the drawer
   }
 
   function endComment() {
@@ -56,36 +69,33 @@ export function DocView() {
   }
 
   if (docQuery.isPending) {
-    return <p className="text-sm text-ink-2">Loading…</p>;
+    return <p className="p-6 text-sm text-ink-2">Loading…</p>;
   }
   if (docQuery.isError) {
-    return <p className="text-sm text-danger">Failed to load: {docQuery.error.message}</p>;
+    return <p className="p-6 text-sm text-danger">Failed to load: {docQuery.error.message}</p>;
   }
 
   const doc = docQuery.data;
-  const threads = commentsQuery.data?.threads ?? [];
-  const effectiveMode: HtmlCanvasMode = readOnly && mode !== 'browse' ? 'browse' : mode;
 
   return (
-    <div>
-      <DocToolbar
+    <>
+      <DocHeaderBar
         docId={docId}
         doc={doc}
         rev={search.v}
         onRevChange={setRev}
-        mode={effectiveMode}
-        onModeChange={setMode}
         readOnly={readOnly}
+        openCount={openCount}
+        commentsOpen={commentsOpen}
+        onToggleComments={() => setCommentsChoice(!commentsOpen)}
       />
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex min-h-[calc(100dvh-3rem)] items-start bg-sheet">
         <div className="min-w-0 flex-1">
           {doc.type === 'md' ? (
             <MdCanvas
               doc={doc}
               docId={docId}
               threads={threads}
-              reviewMode={effectiveMode === 'review'}
-              editMode={effectiveMode === 'edit'}
               readOnly={readOnly}
               focusedThreadId={search.t}
               onFocusThread={focusThread}
@@ -96,21 +106,24 @@ export function DocView() {
               doc={doc}
               docId={docId}
               threads={threads}
-              mode={effectiveMode}
+              readOnly={readOnly}
               focusedThreadId={search.t}
             />
           )}
         </div>
-        <ThreadSidebar
-          docId={docId}
-          threads={threads}
-          focusedThreadId={search.t}
-          onFocusThread={focusThread}
-          composer={
-            pending && <CommentComposer docId={docId} selection={pending} onDone={endComment} />
-          }
-        />
+        {commentsOpen && (
+          <ThreadSidebar
+            docId={docId}
+            threads={threads}
+            focusedThreadId={search.t}
+            onFocusThread={focusThread}
+            onClose={() => setCommentsChoice(false)}
+            composer={
+              pending && <CommentComposer docId={docId} selection={pending} onDone={endComment} />
+            }
+          />
+        )}
       </div>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import './styles.css';
+import './lib/art-icon';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

@@ -107,6 +107,6 @@ export const api = {
     return res.text();
   },
 
-  /** Raw source bytes (`text/plain`), used by DocToolbar's raw link. */
+  /** Raw source bytes (`text/plain`), used by the topbar's raw link. */
   rawUrl: (id: string) => `${docPath(id)}/raw`,
 };

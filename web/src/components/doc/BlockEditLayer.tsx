@@ -1,21 +1,35 @@
 import { useEffect, useMemo, useState, type RefObject } from 'react';
+import { Pencil } from 'lucide-react';
 import { ApiError } from '@/lib/api';
 import { usePostBlock, useRawSource } from '@/lib/queries';
 import { encodeSource, parseSourcepos, sliceSourceBytes } from '@/lib/source-bytes';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
-// Block-level md editing (the Typora/live-preview model): click a rendered
-// block, edit its SOURCE slice, write the slice back verbatim. The handle is
-// the data-sourcepos byte range goldmark already stamps on every block — no
-// ids are ever injected into the md file, and there is no HTML→markdown
+// Block-level md editing (the Typora/live-preview model): a pencil surfaces
+// in the left gutter of the hovered block; clicking it edits that block's
+// SOURCE slice, which is written back verbatim. The handle is the
+// data-sourcepos byte range goldmark already stamps on every block — no ids
+// are ever injected into the md file, and there is no HTML→markdown
 // conversion anywhere, so the round-trip is exact by construction.
+//
+// There is no edit mode: the pencil is the entire entry point, so plain
+// clicks in the prose keep their browse meaning (links navigate, anchor
+// highlights focus their thread).
 
 interface BlockEditLayerProps {
   containerRef: RefObject<HTMLDivElement | null>;
   /** The CSS containing block for absolute positioning (same contract as SelectionPopover's positionRef). */
   positionRef: RefObject<HTMLElement | null>;
   docId: string;
+}
+
+interface HoverTarget {
+  el: HTMLElement;
+  start: number;
+  end: number;
+  top: number;
+  left: number;
 }
 
 interface EditingBlock {
@@ -30,6 +44,7 @@ const HOVER_CLASS = 'art-edit-hover';
 export function BlockEditLayer({ containerRef, positionRef, docId }: BlockEditLayerProps) {
   const rawQuery = useRawSource(docId, true);
   const postBlock = usePostBlock(docId);
+  const [target, setTarget] = useState<HoverTarget | null>(null);
   const [editing, setEditing] = useState<EditingBlock | null>(null);
   const [text, setText] = useState('');
 
@@ -40,48 +55,68 @@ export function BlockEditLayer({ containerRef, positionRef, docId }: BlockEditLa
     [rawQuery.data],
   );
 
+  // The hover listeners live on positionEl, not the prose container: the
+  // pencil sits in the gutter outside the prose, and moving the pointer
+  // onto it must not read as "left the block".
   useEffect(() => {
+    const positionEl = positionRef.current;
     const container = containerRef.current;
-    if (!container || editing) return;
-
-    const blockOf = (e: Event): HTMLElement | null => {
-      const el = (e.target as Element).closest?.<HTMLElement>('[data-sourcepos]');
-      return el && container.contains(el) ? el : null;
-    };
+    if (!positionEl || !container || editing) return;
 
     function onOver(e: Event) {
-      container!.querySelectorAll(`.${HOVER_CLASS}`).forEach((n) => n.classList.remove(HOVER_CLASS));
-      blockOf(e)?.classList.add(HOVER_CLASS);
-    }
-    function onOut() {
-      container!.querySelectorAll(`.${HOVER_CLASS}`).forEach((n) => n.classList.remove(HOVER_CLASS));
-    }
-    function onClick(e: Event) {
-      const block = blockOf(e);
-      const positionEl = positionRef.current;
-      if (!block || !positionEl || !bytes) return;
+      const t = e.target as Element;
+      if (t.closest?.('[data-art-block-pencil]')) return; // on the pencil: keep the current target
+      const block = t.closest?.<HTMLElement>('[data-sourcepos]');
+      if (!block || !container!.contains(block)) {
+        // The pointer is over the gutter / a gap between blocks — the path
+        // it must cross to REACH the pencil. Keep the current target, or
+        // the pencil unmounts right before the click lands (Notion-style
+        // handles have exactly this behavior); mouseleave on the whole
+        // canvas is what actually clears it.
+        return;
+      }
       const pos = parseSourcepos(block.dataset.sourcepos);
-      if (!pos) return;
-      const original = sliceSourceBytes(bytes, pos.start, pos.end);
-      if (original == null) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const top = block.getBoundingClientRect().top - positionEl.getBoundingClientRect().top;
-      onOut();
-      setText(original);
-      setEditing({ start: pos.start, end: pos.end, original, top });
+      if (!pos) {
+        setTarget(null);
+        return;
+      }
+      const posRect = positionEl!.getBoundingClientRect();
+      const rect = block.getBoundingClientRect();
+      const next: HoverTarget = {
+        el: block,
+        start: pos.start,
+        end: pos.end,
+        top: rect.top - posRect.top,
+        left: rect.left - posRect.left - 36,
+      };
+      // mouseover fires on every element boundary inside the block; only
+      // re-render when the resolved block actually changed.
+      setTarget((prev) =>
+        prev && prev.el === next.el && prev.top === next.top ? prev : next,
+      );
+    }
+    function onLeave() {
+      setTarget(null);
     }
 
-    container.addEventListener('mouseover', onOver);
-    container.addEventListener('mouseleave', onOut);
-    container.addEventListener('click', onClick, true);
+    positionEl.addEventListener('mouseover', onOver);
+    positionEl.addEventListener('mouseleave', onLeave);
     return () => {
-      container.removeEventListener('mouseover', onOver);
-      container.removeEventListener('mouseleave', onOut);
-      container.removeEventListener('click', onClick, true);
-      onOut();
+      positionEl.removeEventListener('mouseover', onOver);
+      positionEl.removeEventListener('mouseleave', onLeave);
+      container.querySelectorAll(`.${HOVER_CLASS}`).forEach((n) => n.classList.remove(HOVER_CLASS));
     };
-  }, [containerRef, positionRef, bytes, editing]);
+  }, [containerRef, positionRef, editing]);
+
+  function beginEdit() {
+    if (!target || !bytes) return;
+    const original = sliceSourceBytes(bytes, target.start, target.end);
+    if (original == null) return;
+    target.el.classList.remove(HOVER_CLASS);
+    setText(original);
+    setEditing({ start: target.start, end: target.end, original, top: target.top });
+    setTarget(null);
+  }
 
   function close() {
     setEditing(null);
@@ -97,7 +132,26 @@ export function BlockEditLayer({ containerRef, positionRef, docId }: BlockEditLa
     );
   }
 
-  if (!editing) return null;
+  if (!editing) {
+    if (!target || !bytes) return null;
+    return (
+      <button
+        type="button"
+        data-art-block-pencil
+        title="Edit block"
+        onClick={beginEdit}
+        // The amber outline previews exactly which block the pencil will
+        // edit — only while the pencil itself is hovered, so plain reading
+        // stays quiet.
+        onMouseEnter={() => target.el.classList.add(HOVER_CLASS)}
+        onMouseLeave={() => target.el.classList.remove(HOVER_CLASS)}
+        className="absolute z-10 flex size-7 items-center justify-center rounded text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+        style={{ top: target.top, left: target.left }}
+      >
+        <Pencil className="size-3.5" />
+      </button>
+    );
+  }
 
   const conflict = postBlock.error instanceof ApiError && postBlock.error.status === 409;
   const rows = Math.min(20, Math.max(3, text.split('\n').length + 1));

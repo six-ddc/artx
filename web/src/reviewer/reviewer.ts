@@ -34,6 +34,7 @@ const AID_ATTR = 'data-aid';
 const HIGHLIGHT_CLASS = 'art-reviewer-highlight';
 const FLASH_CLASS = 'art-reviewer-flash';
 const OUTLINE_CLASS = 'art-reviewer-editing';
+const PICKING_CLASS = 'art-reviewer-picking';
 
 type Mode = ModeMsg['mode'];
 
@@ -84,6 +85,7 @@ function injectStyle(): void {
     .${HIGHLIGHT_CLASS} { outline: 2px solid rgba(234, 179, 8, 0.9); outline-offset: 2px; }
     .${FLASH_CLASS} { animation: art-reviewer-flash-kf 1.1s ease-out; }
     .${OUTLINE_CLASS} { outline: 2px dashed rgba(37, 99, 235, 0.9); outline-offset: 2px; }
+    .${PICKING_CLASS}, .${PICKING_CLASS} * { cursor: crosshair !important; }
     @keyframes art-reviewer-flash-kf {
       0% { background-color: rgba(234, 179, 8, 0.45); }
       100% { background-color: transparent; }
@@ -205,6 +207,9 @@ class Reviewer {
       this.stopEditing(this.editingEl);
     }
     this.mode = mode;
+    // Picker feedback: review/edit turn the whole page's cursor into a
+    // crosshair, so "this click picks an element" is visible before it lands.
+    document.documentElement.classList.toggle(PICKING_CLASS, mode !== 'browse');
     if (mode === 'browse') {
       this.lastHoverAid = null;
       const msg: Omit<HoverMsg, 'art'> = { type: 'hover', aid: null, rect: null, tag: '' };
@@ -239,7 +244,17 @@ class Reviewer {
   }
 
   private handleMouseOver(e: MouseEvent): void {
-    if (this.mode !== 'review') return;
+    // Alt while browsing previews the Alt+click pick target, mirroring
+    // handleClick's shortcut path.
+    const picking = this.mode === 'review' || (this.mode === 'browse' && e.altKey);
+    if (!picking) {
+      if (this.lastHoverAid !== null) {
+        this.lastHoverAid = null;
+        const msg: Omit<HoverMsg, 'art'> = { type: 'hover', aid: null, rect: null, tag: '' };
+        post(msg);
+      }
+      return;
+    }
     const target = e.target as Element | null;
     const el = target?.closest<HTMLElement>(`[${AID_ATTR}]`) ?? null;
     const aid = el?.getAttribute(AID_ATTR) ?? null;
@@ -252,7 +267,6 @@ class Reviewer {
   }
 
   private handleMouseOut(e: MouseEvent): void {
-    if (this.mode !== 'review') return;
     if (e.relatedTarget !== null) return; // Still inside the document; let the next mouseover handle it
     if (this.lastHoverAid === null) return;
     this.lastHoverAid = null;
@@ -261,7 +275,11 @@ class Reviewer {
   }
 
   private handleClick(e: MouseEvent): void {
-    if (this.mode !== 'review' && this.mode !== 'edit') return;
+    // Alt+click is the pick-without-switching-tools shortcut: in browse
+    // mode it means "comment on this element", so the page keeps working
+    // normally for every unmodified click.
+    const altPick = this.mode === 'browse' && e.altKey;
+    if (this.mode !== 'review' && this.mode !== 'edit' && !altPick) return;
     const target = e.target as Element | null;
     const el = target?.closest<HTMLElement>(`[${AID_ATTR}]`) ?? null;
     if (!el) return;

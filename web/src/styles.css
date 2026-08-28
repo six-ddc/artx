@@ -154,7 +154,7 @@
 }
 /* Tailwind preflight resets heading font-size to inherit; without
    restoring a size scale here, h1-h4 would render the same size as body
-   text, indistinguishable in hierarchy from the DocToolbar title outside. */
+   text, indistinguishable in hierarchy from the topbar title outside. */
 .art-prose h1 {
   font-size: 1.5em;
 }
@@ -227,6 +227,66 @@
   padding-left: 1em;
   color: var(--color-ink-2);
 }
+.art-prose blockquote > * + * {
+  margin-top: 0.6em;
+}
+
+/* GitHub-style alerts (server-rendered, mdsrc/alerts.go). A card, not a
+   stripe: the kind is carried by the icon + small-caps mono label (the same
+   metadata language as table headers) plus a faint wash of the kind color —
+   the marker left-border stays reserved for real quotes. Kind colors come
+   only from the existing token set: note=ink, tip=resolved,
+   important=addressed, warning=marker, caution=danger. */
+.art-prose blockquote.art-alert {
+  --alert-color: var(--color-ink-2);
+  border: 1px solid color-mix(in oklch, var(--alert-color) 32%, var(--color-line));
+  border-radius: 6px;
+  padding: 0.7em 1em 0.8em;
+  background-color: color-mix(in oklch, var(--alert-color) 4%, var(--color-sheet));
+  color: var(--color-ink);
+}
+.art-prose .art-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--alert-color);
+}
+.art-alert-icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex-shrink: 0;
+}
+.art-prose .art-alert p:empty {
+  display: none;
+}
+.art-prose .art-alert.art-alert-tip {
+  --alert-color: var(--color-resolved);
+}
+.art-prose .art-alert.art-alert-important {
+  --alert-color: var(--color-addressed);
+}
+.art-prose .art-alert.art-alert-caution {
+  --alert-color: var(--color-danger);
+}
+/* Amber that reads as *text* in the current theme: marker-ink is tuned for
+   light chips and would vanish on a dark sheet, so warning flips to the
+   bright marker in dark mode — same override pattern as --amber-text below. */
+.art-prose .art-alert.art-alert-warning {
+  --alert-color: var(--color-marker-ink);
+}
+:root[data-theme='dark'] .art-prose .art-alert.art-alert-warning {
+  --alert-color: var(--color-marker);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .art-prose .art-alert.art-alert-warning {
+    --alert-color: var(--color-marker);
+  }
+}
 .art-prose table {
   width: 100%;
   border-collapse: collapse;
@@ -250,20 +310,104 @@
   max-width: 100%;
 }
 
-/* "Paper": the container where document content floats above the desk color (DocView main area). */
-.art-paper {
-  background-color: var(--color-sheet);
-  border: 1px solid var(--color-line);
-  border-radius: 4px;
-  box-shadow: 0 1px 2px color-mix(in oklch, var(--color-ink) 6%, transparent);
+/* Syntax highlighting (server-side chroma in class mode, mdsrc/highlight.go).
+   A restrained ink-first scheme sourced only from theme tokens, so it
+   follows light/dark for free: keywords/types=addressed, strings=resolved,
+   comments=ink-3, numbers=amber, the rest stays ink. */
+.art-prose code.chroma .k,
+.art-prose code.chroma .kc,
+.art-prose code.chroma .kd,
+.art-prose code.chroma .kn,
+.art-prose code.chroma .kp,
+.art-prose code.chroma .kr,
+.art-prose code.chroma .ow {
+  color: var(--color-addressed);
+  font-weight: 500;
 }
-:root[data-theme='dark'] .art-paper {
-  box-shadow: none;
+.art-prose code.chroma .kt,
+.art-prose code.chroma .nc,
+.art-prose code.chroma .nt,
+.art-prose code.chroma .nd {
+  color: var(--color-addressed);
+}
+.art-prose code.chroma .s,
+.art-prose code.chroma .s1,
+.art-prose code.chroma .s2,
+.art-prose code.chroma .sb,
+.art-prose code.chroma .sc,
+.art-prose code.chroma .sd,
+.art-prose code.chroma .se,
+.art-prose code.chroma .sh,
+.art-prose code.chroma .si,
+.art-prose code.chroma .sx,
+.art-prose code.chroma .sr,
+.art-prose code.chroma .ss {
+  color: var(--color-resolved);
+}
+.art-prose code.chroma .c,
+.art-prose code.chroma .c1,
+.art-prose code.chroma .cm,
+.art-prose code.chroma .cs,
+.art-prose code.chroma .ch,
+.art-prose code.chroma .cp,
+.art-prose code.chroma .cpf {
+  color: var(--color-ink-3);
+  font-style: italic;
+}
+.art-prose code.chroma .m,
+.art-prose code.chroma .mb,
+.art-prose code.chroma .mf,
+.art-prose code.chroma .mh,
+.art-prose code.chroma .mi,
+.art-prose code.chroma .mil,
+.art-prose code.chroma .mo,
+.art-prose code.chroma .no {
+  color: var(--amber-text);
+}
+.art-prose code.chroma .nf,
+.art-prose code.chroma .fm {
+  font-weight: 600;
+}
+.art-prose code.chroma .o,
+.art-prose code.chroma .p {
+  color: var(--color-ink-2);
+}
+/* diff blocks: agents post patches constantly, make ± lines legible */
+.art-prose code.chroma .gd {
+  color: var(--color-danger);
+  background-color: color-mix(in oklch, var(--color-danger) 8%, transparent);
+}
+.art-prose code.chroma .gi {
+  color: var(--color-resolved);
+  background-color: color-mix(in oklch, var(--color-resolved) 8%, transparent);
+}
+
+/* Amber usable as body-sized text: marker-ink in light mode, the bright
+   marker on a dark sheet. */
+.art-prose {
+  --amber-text: var(--color-marker-ink);
+}
+:root[data-theme='dark'] .art-prose {
+  --amber-text: var(--color-marker);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .art-paper {
-    box-shadow: none;
+  :root:not([data-theme='light']) .art-prose {
+    --amber-text: var(--color-marker);
   }
+}
+
+/* <art-icon> inline icons (lib/art-icon.ts): sized like a text glyph and
+   colored by inheritance, so they follow the surrounding prose. */
+art-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+art-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* Shared styling for mono metadata: the common typographic language for id / sha / offset / status labels. */
@@ -338,14 +482,13 @@
   transform: rotate(-1deg);
   letter-spacing: -0.01em;
 }
-/* Edit-mode block hover (BlockEditLayer): the block under the pointer is a
-   click-to-edit target. Marker amber outline, matching the reviewer's html
-   element highlight so both doc types speak one language. */
+/* Block-edit preview (BlockEditLayer): while the gutter pencil is hovered,
+   the block it would edit gets a marker amber outline — matching the
+   reviewer's html element highlight so both doc types speak one language. */
 .art-edit-hover {
   outline: 2px solid oklch(0.8 0.16 75 / 60%);
   outline-offset: 4px;
   border-radius: 0.25em;
-  cursor: pointer;
 }
 
 .art-anchor-approx {
@@ -386,6 +529,21 @@
   }
   .art-pop-in {
     animation: art-pop-in 120ms ease-out;
+  }
+
+  @keyframes art-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* The comments drawer easing in from the right edge. */
+  .art-slide-in {
+    animation: art-slide-in 160ms ease-out;
   }
 }
 
