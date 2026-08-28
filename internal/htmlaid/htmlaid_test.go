@@ -312,3 +312,37 @@ func TestReplaceElementHTML(t *testing.T) {
 		t.Fatal("a missing aid should return an error")
 	}
 }
+
+// A fragment snapshotted while the reviewer was still mid-edit inside it
+// carries the reviewer's runtime state (art-reviewer-* classes plus the
+// contenteditable the script set); none of it may be persisted. A
+// contenteditable that is the artifact's own (no reviewer class) must
+// survive untouched.
+func TestReplaceElementHTMLStripsReviewerResidue(t *testing.T) {
+	out := mustInject(t, []byte(sampleHTML)).Output
+	doc, _ := Parse(out)
+	aid := attr(findElement(doc, "section"), AIDAttr)
+
+	inner := `<h2>风险</h2>` +
+		`<p class="art-reviewer-editing note" contenteditable="true">编辑中的段落</p>` +
+		`<p class="art-reviewer-highlight art-reviewer-flash">被高亮的段落</p>` +
+		`<div contenteditable="true">用户自己的可编辑区</div>`
+	replaced, err := ReplaceElementHTML(out, aid, []byte(inner))
+	if err != nil {
+		t.Fatalf("ReplaceElementHTML: %v", err)
+	}
+	s := string(replaced)
+
+	if strings.Contains(s, "art-reviewer-") {
+		t.Fatalf("reviewer classes persisted: %s", s)
+	}
+	if !strings.Contains(s, `<p class="note">编辑中的段落</p>`) {
+		t.Fatalf("non-reviewer class should survive with contenteditable stripped: %s", s)
+	}
+	if !strings.Contains(s, `<p>被高亮的段落</p>`) {
+		t.Fatalf("an emptied class attribute should be dropped entirely: %s", s)
+	}
+	if !strings.Contains(s, `<div contenteditable="true">用户自己的可编辑区</div>`) {
+		t.Fatalf("the artifact's own contenteditable must be left alone: %s", s)
+	}
+}

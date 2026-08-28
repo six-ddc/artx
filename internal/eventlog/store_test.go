@@ -697,3 +697,74 @@ func TestNewEventFillsEIDAndTS(t *testing.T) {
 		t.Error("TS not filled")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Delete tombstone semantics.
+
+func TestFoldDeleteHidesThread(t *testing.T) {
+	create := createEvent("e0", "2026-08-27T10:00:00Z", "cabcde", "cappu", "oops")
+	del := Event{E: KindDelete, EID: "e1", Thread: "cabcde", By: "cappu", TS: mustTimeQuiet("2026-08-27T10:01:00Z")}
+	other := createEvent("e2", "2026-08-27T10:02:00Z", "cfghij", "cappu", "keep me")
+
+	fr := Fold([]Event{create, del, other})
+	if len(fr.Threads) != 1 || fr.Threads[0].Thread != "cfghij" {
+		t.Fatalf("deleted thread should be hidden, got %+v", fr.Threads)
+	}
+	if len(fr.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", fr.Warnings)
+	}
+}
+
+func TestFoldEventsAfterDeleteAreSilentlySkipped(t *testing.T) {
+	// The agent-race case: a reply/addressed lands in the log after the
+	// human deleted the thread. That is expected, not corruption — the
+	// events must fold to nothing WITHOUT warnings.
+	create := createEvent("e0", "2026-08-27T10:00:00Z", "cabcde", "cappu", "oops")
+	del := Event{E: KindDelete, EID: "e1", Thread: "cabcde", By: "cappu", TS: mustTimeQuiet("2026-08-27T10:01:00Z")}
+	lateReply := Event{E: KindReply, EID: "e2", Thread: "cabcde", ID: "cabcde.001", Author: "agent", Body: "done!", TS: mustTimeQuiet("2026-08-27T10:02:00Z")}
+	lateAddressed := Event{E: KindAddressed, EID: "e3", Thread: "cabcde", By: "agent", TS: mustTimeQuiet("2026-08-27T10:03:00Z")}
+	lateEdit := Event{E: KindEdit, EID: "e4", Target: "cabcde.001", Author: "agent", Body: "edited", TS: mustTimeQuiet("2026-08-27T10:04:00Z")}
+
+	fr := Fold([]Event{create, del, lateReply, lateAddressed, lateEdit})
+	if len(fr.Threads) != 0 {
+		t.Fatalf("thread should stay deleted, got %+v", fr.Threads)
+	}
+	if len(fr.Warnings) != 0 {
+		t.Fatalf("post-delete events must not warn, got %v", fr.Warnings)
+	}
+}
+
+func TestFoldDeleteUnknownThreadWarns(t *testing.T) {
+	del := Event{E: KindDelete, EID: "e1", Thread: "cnope0", By: "cappu", TS: mustTimeQuiet("2026-08-27T10:01:00Z")}
+	fr := Fold([]Event{del})
+	if len(fr.Warnings) != 1 {
+		t.Fatalf("expected one warning, got %v", fr.Warnings)
+	}
+}
+
+func TestCompactSweepsDeletedThreadEvents(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	create := createEvent("e0", "2026-08-27T10:00:00Z", "cabcde", "cappu", "oops")
+	reply := Event{E: KindReply, EID: "e1", Thread: "cabcde", ID: "cabcde.001", Author: "a", Body: "r", TS: mustTimeQuiet("2026-08-27T10:01:00Z")}
+	del := Event{E: KindDelete, EID: "e2", Thread: "cabcde", By: "cappu", TS: mustTimeQuiet("2026-08-27T10:02:00Z")}
+	keep := createEvent("e3", "2026-08-27T10:03:00Z", "cfghij", "cappu", "keep")
+	if err := s.Append("d1", create, reply, del, keep); err != nil {
+		t.Fatal(err)
+	}
+
+	stat, err := s.Compact("d1", CompactOptions{Force: true, Now: mustTimeQuiet("2026-08-28T10:00:00Z")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat.EventsAfter != 1 {
+		t.Fatalf("EventsAfter = %d, want 1 (only the surviving create)", stat.EventsAfter)
+	}
+	fr, err := s.Threads("d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fr.Threads) != 1 || fr.Threads[0].Thread != "cfghij" {
+		t.Fatalf("post-compact threads wrong: %+v", fr.Threads)
+	}
+}

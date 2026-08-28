@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
+import type { SelectionInput } from '@/lib/types';
 import { useComments, useDoc } from '@/lib/queries';
+import { clearPendingHighlight, setPendingHighlight } from '@/lib/pending-highlight';
 import { DocToolbar } from '@/components/doc/DocToolbar';
 import { MdCanvas } from '@/components/doc/MdCanvas';
 import { HtmlCanvas, type HtmlCanvasMode } from '@/components/doc/HtmlCanvas';
 import { ThreadSidebar } from '@/components/threads/ThreadSidebar';
+import { CommentComposer } from '@/components/threads/CommentComposer';
 
 export interface DocViewSearch {
   /** Historical git sha; undefined = the working-copy version. */
@@ -20,10 +23,19 @@ export function DocView() {
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
   const [mode, setMode] = useState<HtmlCanvasMode>('browse');
+  // The in-flight new comment: anchor input captured from a selection,
+  // composing in the sidebar while the prose shows the pending highlight.
+  const [pending, setPending] = useState<SelectionInput | null>(null);
 
   const readOnly = Boolean(search.v);
   const docQuery = useDoc(docId, search.v);
   const commentsQuery = useComments(docId);
+
+  // The pending highlight lives in the global CSS highlight registry, not
+  // React state — clear it whenever this view unmounts or switches docs.
+  useEffect(() => {
+    return () => clearPendingHighlight();
+  }, [docId]);
 
   function setRev(rev: string | undefined) {
     void navigate({ search: (prev) => ({ ...prev, v: rev }) });
@@ -31,6 +43,16 @@ export function DocView() {
 
   function focusThread(threadId: string) {
     void navigate({ search: (prev) => ({ ...prev, t: prev.t === threadId ? undefined : threadId }) });
+  }
+
+  function startComment(selection: SelectionInput, range: Range) {
+    setPendingHighlight(range);
+    setPending(selection);
+  }
+
+  function endComment() {
+    clearPendingHighlight();
+    setPending(null);
   }
 
   if (docQuery.isPending) {
@@ -60,11 +82,12 @@ export function DocView() {
           {doc.type === 'md' ? (
             <MdCanvas
               doc={doc}
-              docId={docId}
               threads={threads}
               reviewMode={effectiveMode === 'review'}
               readOnly={readOnly}
               focusedThreadId={search.t}
+              onFocusThread={focusThread}
+              onStartComment={startComment}
             />
           ) : (
             <HtmlCanvas
@@ -81,6 +104,9 @@ export function DocView() {
           threads={threads}
           focusedThreadId={search.t}
           onFocusThread={focusThread}
+          composer={
+            pending && <CommentComposer docId={docId} selection={pending} onDone={endComment} />
+          }
         />
       </div>
     </div>

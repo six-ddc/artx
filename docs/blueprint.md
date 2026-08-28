@@ -289,6 +289,7 @@ Archive: `<vault>/.artx/comments/<docid>.archive.yaml`, containing only `archive
 | `addressed` | `eid ts thread by` | `commit note` | CLI (`artx addressed`) |
 | `resolve` | `eid ts thread by` | — | browser / CLI |
 | `reopen` | `eid ts thread by` | `note` | browser / CLI |
+| `delete` | `eid ts thread by` | — | browser / CLI (`artx delete`); tombstone — fold hides the thread, events after it fold to nothing without warnings, compact sweeps the whole chain |
 | `remap` | `eid ts thread start end` | `rev` | watcher |
 | `orphan` | `eid ts thread last_exact` | `rev` | watcher |
 | `archive` | `eid ts thread archived` | — | compact (writes to `.archive.yaml`) |
@@ -331,7 +332,7 @@ Triggers: `artx compact` manually, or serve detecting a log > 256KB / a thread r
 2. The remaining threads' edit chains collapse into the create/reply body
 3. remap chains collapse into the create anchor (keeping the last start/end/rev)
 4. Write `<docid>.yaml.tmp`, then `rename` for an atomic replace
-5. One separate git commit: `artx: compact <docid>`
+5. One separate git commit: `artx: compact <docid> (120 -> 8 events, 3 threads archived)`
 
 ---
 
@@ -376,6 +377,7 @@ Field names and types are in `web/src/lib/types.ts` (one-to-one with `internal/a
 | `addressed` | `thread` | `commit` and `note` are optional |
 | `resolve` | `thread` | |
 | `reopen` | `thread` | `note` is optional |
+| `delete` | `thread` | tombstone; the thread disappears from every read immediately |
 
 When `author` is omitted the server fills it in: local mode takes `$USER`; `--token` mode takes `artx-web <display name>`, where the display name comes from the request body's `author` or defaults to `reviewer` (design doc §13, resolution 2: the token is the identity, plus a self-reported display name is allowed).
 

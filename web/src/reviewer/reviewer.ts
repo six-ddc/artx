@@ -97,6 +97,8 @@ class Reviewer {
   private lastHoverAid: string | null = null;
   private highlighted = new Set<string>();
   private editingEl: HTMLElement | null = null;
+  /** True once any message from the parent has arrived — proof the shell's listener is attached. */
+  private acked = false;
 
   init(): void {
     injectStyle();
@@ -106,12 +108,38 @@ class Reviewer {
     document.addEventListener('click', (e) => this.handleClick(e), true);
     window.addEventListener('scroll', () => this.scheduleScroll(), { passive: true });
 
+    // Height reporting must survive every way layout can finish late: the
+    // observer watches BOTH html and body — when the parent sizes the
+    // iframe, html's border-box can get pinned to the viewport and stop
+    // firing, while body keeps tracking content. load and fonts.ready
+    // re-measure what DOMContentLoaded-time layout missed (async images,
+    // web fonts) — without these, a mid-load measurement sticks and the
+    // artifact renders cut off at a fraction of its height.
     const ro = new ResizeObserver(() => this.sendSize());
     ro.observe(document.documentElement);
+    if (document.body) ro.observe(document.body);
     window.addEventListener('load', () => this.sendSize());
+    document.fonts?.ready.then(() => this.sendSize()).catch(() => {});
 
     this.sendReady();
     this.sendSize();
+
+    // Handshake retry. A cache-warm iframe can boot and fire its one-shot
+    // ready/size burst BEFORE the shell's React effect has attached its
+    // message listener; nothing re-triggers afterwards, so the iframe
+    // stays at the shell's default height — the "artifact renders cut off"
+    // bug. The shell replies to 'ready' with 'mode', so any inbound
+    // message proves the listener is up: keep re-announcing until then
+    // (or give up after ~5s — e.g. the page was opened outside the shell).
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      if (this.acked || ++tries > 25) {
+        window.clearInterval(timer);
+        return;
+      }
+      this.sendReady();
+      this.sendSize();
+    }, 200);
   }
 
   private sendReady(): void {
@@ -124,9 +152,21 @@ class Reviewer {
   }
 
   private sendSize(): void {
+    // Take the max over both roots' scroll and offset heights:
+    // documentElement.scrollHeight alone reads as just the viewport height
+    // in some layouts (e.g. a body whose height is driven by absolutely
+    // positioned or overflowing children), which is exactly the
+    // "half-rendered artifact" bug.
+    const html = document.documentElement;
+    const body = document.body;
     const msg: Omit<SizeMsg, 'art'> = {
       type: 'size',
-      height: document.documentElement.scrollHeight,
+      height: Math.max(
+        html.scrollHeight,
+        html.offsetHeight,
+        body ? body.scrollHeight : 0,
+        body ? body.offsetHeight : 0,
+      ),
     };
     post(msg);
   }
@@ -145,6 +185,7 @@ class Reviewer {
   private handleMessage(e: MessageEvent): void {
     if (e.source !== window.parent) return;
     if (!isToFrameMessage(e.data)) return;
+    this.acked = true;
     const msg = e.data;
     switch (msg.type) {
       case 'mode':
@@ -275,8 +316,31 @@ class Reviewer {
 
   private commitEdit(el: HTMLElement, aid: string): void {
     this.stopEditing(el);
-    const msg: Omit<EditMsg, 'art'> = { type: 'edit', aid, html: el.innerHTML };
+    const msg: Omit<EditMsg, 'art'> = { type: 'edit', aid, html: this.cleanedInnerHTML(el) };
     post(msg);
+  }
+
+  /**
+   * Serializes el's content with this script's own runtime state stripped
+   * out: a descendant still mid-edit (our editing class + the
+   * contenteditable we set with it) and transient highlight/flash classes
+   * must never reach the write-back — they'd be persisted into the source
+   * file verbatim. Works on a clone so the live DOM keeps its state. The
+   * server strips the same signature again as a second line of defense.
+   */
+  private cleanedInnerHTML(el: HTMLElement): string {
+    const clone = el.cloneNode(true) as HTMLElement;
+    for (const node of clone.querySelectorAll(`.${OUTLINE_CLASS}`)) {
+      node.classList.remove(OUTLINE_CLASS);
+      node.removeAttribute('contenteditable');
+    }
+    for (const node of clone.querySelectorAll(`.${HIGHLIGHT_CLASS}, .${FLASH_CLASS}`)) {
+      node.classList.remove(HIGHLIGHT_CLASS, FLASH_CLASS);
+    }
+    for (const node of clone.querySelectorAll('[class=""]')) {
+      node.removeAttribute('class');
+    }
+    return clone.innerHTML;
   }
 }
 

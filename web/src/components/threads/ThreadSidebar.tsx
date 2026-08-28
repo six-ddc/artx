@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Thread } from '@/lib/types';
 import { ThreadFilter, type ThreadFilterValue } from './ThreadFilter';
 import { ThreadCard } from './ThreadCard';
@@ -8,11 +8,13 @@ interface ThreadSidebarProps {
   threads: Thread[];
   focusedThreadId?: string;
   onFocusThread: (threadId: string) => void;
+  /** The new-comment composer card, docked above the thread list while a selection is pending. */
+  composer?: ReactNode;
 }
 
 const FLASH_MS = 650;
 
-export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread }: ThreadSidebarProps) {
+export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread, composer }: ThreadSidebarProps) {
   const [filter, setFilter] = useState<ThreadFilterValue>('open');
   const [flashIds, setFlashIds] = useState<ReadonlySet<string>>(new Set());
   const knownIds = useRef<Set<string> | null>(null);
@@ -41,6 +43,16 @@ export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread }
     knownIds.current = currentIds;
   }, [threads]);
 
+  // Focus must never point at an invisible card: clicking a highlight whose
+  // thread the current filter hides (e.g. an addressed thread under the
+  // default "open" filter) widens the filter to "all" so the card can light
+  // up and scroll into view.
+  useEffect(() => {
+    if (!focusedThreadId || filter === 'all') return;
+    const focused = threads.find((t) => t.thread === focusedThreadId);
+    if (focused && focused.status !== filter) setFilter('all');
+  }, [focusedThreadId, threads, filter]);
+
   const counts = useMemo(() => {
     const c: Record<ThreadFilterValue, number> = { open: 0, addressed: 0, resolved: 0, all: threads.length };
     for (const t of threads) c[t.status]++;
@@ -62,6 +74,7 @@ export function ThreadSidebar({ docId, threads, focusedThreadId, onFocusThread }
         <h2 className="text-sm font-semibold text-ink">Threads</h2>
         <ThreadFilter value={filter} counts={counts} onChange={setFilter} />
       </div>
+      {composer}
       <div className="flex-1 overflow-y-auto border-t border-line">
         {filtered.length === 0 ? (
           <p className="px-1 py-3 text-xs text-ink-3">

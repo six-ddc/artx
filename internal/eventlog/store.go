@@ -325,6 +325,11 @@ func Fold(events []Event) *FoldResult {
 	threads := make(map[string]*api.Thread)
 	replySeen := make(map[string]map[string]bool)
 	order := make([]string, 0)
+	// Threads removed by a delete tombstone. Later events targeting them are
+	// skipped WITHOUT a warning: an agent replying to (or addressing) a
+	// thread that a human deleted mid-flight is an expected race, not
+	// corruption — the write lands in the log and simply folds to nothing.
+	deleted := make(map[string]bool)
 
 	warn := func(format string, args ...any) {
 		result.Warnings = append(result.Warnings, fmt.Sprintf(format, args...))
@@ -337,7 +342,22 @@ func Fold(events []Event) *FoldResult {
 	}
 
 	for _, e := range deduped {
+		if tid := eventThreadID(e); tid != "" && deleted[tid] {
+			continue
+		}
 		switch e.E {
+		case KindDelete:
+			if e.Thread == "" {
+				warn("delete event %s missing thread id", e.EID)
+				continue
+			}
+			if _, ok := threads[e.Thread]; !ok {
+				warn("delete event references unknown thread %s", e.Thread)
+				continue
+			}
+			delete(threads, e.Thread)
+			deleted[e.Thread] = true
+
 		case KindCreate:
 			if e.Thread == "" {
 				warn("create event %s missing thread id", e.EID)
@@ -479,7 +499,11 @@ func Fold(events []Event) *FoldResult {
 
 	result.Threads = make([]api.Thread, 0, len(order))
 	for _, id := range order {
-		result.Threads = append(result.Threads, *threads[id])
+		th, ok := threads[id]
+		if !ok {
+			continue // removed by a delete tombstone
+		}
+		result.Threads = append(result.Threads, *th)
 	}
 	sort.SliceStable(result.Threads, func(i, j int) bool {
 		a, b := result.Threads[i], result.Threads[j]

@@ -171,7 +171,7 @@ Triggers: `artx compact` manually, or serve detecting a log > 256KB / resolved t
 1. A resolved thread is folded whole into a single summary event and moved into `<docid>.archive.yaml`
 2. The edit chain collapses into the final body (the create event is rewritten in place)
 3. The remap chain collapses into the create event's anchor
-4. Compaction is itself a standalone git commit (`artx: compact a7f3`), so the full history is still recoverable from git
+4. Compaction is itself a standalone git commit (`artx: compact a7f3 (120 -> 8 events, 3 threads archived)`), so the full history is still recoverable from git
 
 ### 6.4 Concurrent writes and locking
 
@@ -217,7 +217,7 @@ Defense in depth: event id = timestamp + random suffix (no id collisions under c
 
 **Two rendering red lines**: ① the single source of truth for md rendering is Go-side goldmark (React only consumes the HTML carrying data-sourcepos and attaches overlays); the frontend must never re-render md, or the sourcepos anchor system collapses; ② the reviewer script injected into the sandboxed iframe of an html artifact stays vanilla with zero dependencies — React lives only in the shell application and never enters the sandbox.
 
-**auto-commit**: once the watcher debounce settles, the artifact's own directory and `.artx/comments/` are staged and committed as `artx: update <slug>`. The scope is deliberately narrower than `git add -A`: staging the whole tree while processing one document sweeps in whatever another document happens to be mid-edit, committing a state the watcher never processed. Authorship distinguishes three classes — agent/human/artx (writes through the comment API use `artx-web <reviewer>`).
+**auto-commit**: once the watcher debounce settles, the artifact's own directory and `.artx/comments/` are staged and committed as `artx: update <slug>` — or `artx: add <slug>` for a file git has never seen — with a parenthesized summary of anything notable the pass did (`restore doc id`, `inject element ids`, `2 comments remapped, 1 orphaned`), so `git log --oneline` reads as an operation log rather than a wall of identical subjects. The scope is deliberately narrower than `git add -A`: staging the whole tree while processing one document sweeps in whatever another document happens to be mid-edit, committing a state the watcher never processed. Authorship distinguishes three classes — agent/human/artx (writes through the comment API use `artx-web <reviewer>`).
 
 ## 9. Security
 

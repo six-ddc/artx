@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import type { Thread } from '@/lib/types';
 import { usePostEvent } from '@/lib/queries';
 import { Button } from '@/components/ui/button';
@@ -60,7 +61,53 @@ export function StatusActions({ docId, thread }: StatusActionsProps) {
           }
         />
       )}
+      <DeleteAction
+        pending={postEvent.isPending}
+        onConfirm={() => postEvent.mutate({ type: 'delete', thread: thread.thread })}
+      />
     </div>
+  );
+}
+
+/**
+ * Deletion is destructive-looking but is actually a tombstone event in the
+ * append-only log (recoverable until compact) — still, it disappears from
+ * every view immediately, so it gets a two-step confirm.
+ */
+function DeleteAction({ pending, onConfirm }: { pending: boolean; onConfirm: () => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          className="ml-auto text-ink-3 hover:text-danger"
+          aria-label="Delete thread"
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56">
+        <p className="text-xs text-ink-2">Delete this thread and its replies?</p>
+        <div className="mt-2 flex justify-end gap-1.5">
+          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              onConfirm();
+              setOpen(false);
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -46,6 +46,72 @@ function findCoveringBlock(root: HTMLElement, start: number, end: number): HTMLE
   return best;
 }
 
+/**
+ * Locates needle in full, returning [start, end) offsets into full, or null.
+ *
+ * Tries an exact indexOf first, then retries with markdown source syntax
+ * normalized away on both sides. The retry is essential: anchor.exact is a
+ * SOURCE FILE excerpt, so it carries inline-code backticks, `> ` blockquote
+ * prefixes, `**` strong markers and hard newlines — none of which exist in
+ * the rendered DOM text. Without normalization, any quote touching inline
+ * markup silently degrades to the block-level dashed fallback and the
+ * highlighter never appears.
+ *
+ * Exported for tests.
+ */
+export function findQuoteSpan(full: string, needle: string): [number, number] | null {
+  const direct = full.indexOf(needle);
+  if (direct !== -1) return [direct, direct + needle.length];
+
+  // Normalize the haystack, keeping a map from each normalized char back to
+  // its original index: whitespace runs collapse to one space, backticks
+  // drop. (Literal `*` from code spans stays — only the paired `**` strong
+  // marker is stripped from the needle below, where it cannot be literal.)
+  const map: number[] = [];
+  let norm = '';
+  let pendingSpace = false;
+  for (let i = 0; i < full.length; i++) {
+    const ch = full[i]!;
+    if (/\s/.test(ch)) {
+      pendingSpace = norm.length > 0;
+      continue;
+    }
+    if (ch === '`') continue;
+    if (pendingSpace) {
+      norm += ' ';
+      map.push(i);
+      pendingSpace = false;
+    }
+    norm += ch;
+    map.push(i);
+  }
+
+  let needleNorm = '';
+  {
+    const preStripped = needle.replace(/^>[ \t]?/gm, '').replace(/\*\*/g, '');
+    let sawChar = false;
+    let space = false;
+    for (const ch of preStripped) {
+      if (/\s/.test(ch)) {
+        space = sawChar;
+        continue;
+      }
+      if (ch === '`') continue;
+      if (space) {
+        needleNorm += ' ';
+        space = false;
+      }
+      needleNorm += ch;
+      sawChar = true;
+    }
+  }
+  if (!needleNorm) return null;
+
+  const idx = norm.indexOf(needleNorm);
+  if (idx === -1) return null;
+  return [map[idx]!, map[idx + needleNorm.length - 1]! + 1];
+}
+
 /** Finds needle in the plain text of root's subtree, returning a Range that may span multiple text nodes. */
 function findTextRange(root: HTMLElement, needle: string): Range | null {
   if (!needle) return null;
@@ -58,9 +124,9 @@ function findTextRange(root: HTMLElement, needle: string): Range | null {
     nodes.push(text);
     full += text.data;
   }
-  const idx = full.indexOf(needle);
-  if (idx === -1) return null;
-  const endIdx = idx + needle.length;
+  const span = findQuoteSpan(full, needle);
+  if (!span) return null;
+  const [idx, endIdx] = span;
 
   let pos = 0;
   let startNode: Text | null = null;
@@ -88,6 +154,55 @@ function findTextRange(root: HTMLElement, needle: string): Range | null {
   return range;
 }
 
+/**
+ * Wraps every text-node segment of range in its own mark element.
+ * Range.surroundContents is useless here: it throws the moment the range
+ * crosses an element boundary, and real anchors do that all the time (a
+ * quote spanning inline-code spans, links, emphasis). Per-text-node marks
+ * paint the same visual highlight and unwrap cleanly in clearMarks.
+ */
+function wrapRangeTextNodes(range: Range, makeMark: () => HTMLElement): HTMLElement[] {
+  let startNode = range.startContainer;
+  let endNode = range.endContainer;
+  if (startNode.nodeType !== Node.TEXT_NODE || endNode.nodeType !== Node.TEXT_NODE) return [];
+  const commonRoot =
+    range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+  if (!commonRoot) return [];
+
+  let startText = startNode as Text;
+  let endText = endNode as Text;
+  if (startText === endText) {
+    if (range.endOffset < endText.length) endText.splitText(range.endOffset);
+    if (range.startOffset > 0) startText = startText.splitText(range.startOffset);
+    endText = startText;
+  } else {
+    if (range.endOffset < endText.length) endText.splitText(range.endOffset);
+    if (range.startOffset > 0) startText = startText.splitText(range.startOffset);
+  }
+
+  const walker = document.createTreeWalker(commonRoot, NodeFilter.SHOW_TEXT);
+  const targets: Text[] = [];
+  let inRange = false;
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node === startText) inRange = true;
+    if (inRange) targets.push(node as Text);
+    if (node === endText) break;
+  }
+
+  const marks: HTMLElement[] = [];
+  for (const t of targets) {
+    if (!t.data || !t.parentNode) continue;
+    const mark = makeMark();
+    t.parentNode.insertBefore(mark, t);
+    mark.appendChild(t);
+    marks.push(mark);
+  }
+  return marks;
+}
+
 function clearMarks(root: HTMLElement): void {
   root.querySelectorAll(`mark[${MARK_ATTR}]`).forEach((mark) => {
     const parent = mark.parentNode;
@@ -98,6 +213,7 @@ function clearMarks(root: HTMLElement): void {
   });
   root.querySelectorAll(`.${APPROX_CLASS}`).forEach((el) => {
     el.classList.remove(APPROX_CLASS, FOCUS_CLASS);
+    el.removeAttribute(MARK_ATTR);
   });
 }
 
@@ -116,9 +232,13 @@ export function HighlightLayer({ containerRef, threads, focusedThreadId, html }:
 
     clearMarks(root);
 
-    const markApprox = (block: HTMLElement | null, focused: boolean) => {
+    const markApprox = (block: HTMLElement | null, threadId: string, focused: boolean) => {
       if (!block) return;
       block.classList.add(APPROX_CLASS);
+      // Approx/orphan blocks are click targets too (the reverse focus link
+      // in MdCanvas matches on [data-art-thread]); first thread wins when
+      // several share a block.
+      if (!block.hasAttribute(MARK_ATTR)) block.setAttribute(MARK_ATTR, threadId);
       if (focused) {
         block.classList.add(FOCUS_CLASS);
         block.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -132,26 +252,27 @@ export function HighlightLayer({ containerRef, threads, focusedThreadId, html }:
       const block = findCoveringBlock(root, start, end);
 
       if (orphan || approx || !exact) {
-        markApprox(block, focused);
+        markApprox(block, thread.thread, focused);
         continue;
       }
 
       const range = findTextRange(block ?? root, exact);
       if (!range) {
-        markApprox(block, focused);
+        markApprox(block, thread.thread, focused);
         continue;
       }
 
-      const mark = document.createElement('mark');
-      mark.className = focused ? `${EXACT_CLASS} ${FOCUS_CLASS}` : EXACT_CLASS;
-      mark.setAttribute(MARK_ATTR, thread.thread);
-      try {
-        range.surroundContents(mark);
-        if (focused) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } catch {
-        // The range crosses a non-text-node boundary, so surroundContents throws — fall back to a whole-block marker.
-        markApprox(block, focused);
+      const marks = wrapRangeTextNodes(range, () => {
+        const mark = document.createElement('mark');
+        mark.className = focused ? `${EXACT_CLASS} ${FOCUS_CLASS}` : EXACT_CLASS;
+        mark.setAttribute(MARK_ATTR, thread.thread);
+        return mark;
+      });
+      if (marks.length === 0) {
+        markApprox(block, thread.thread, focused);
+        continue;
       }
+      if (focused) marks[0]!.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     return () => clearMarks(root);

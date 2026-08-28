@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { Thread } from '@/lib/types';
 import { cn, formatDateTime } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -27,9 +28,18 @@ interface ThreadCardProps {
  */
 export function ThreadCard({ docId, thread, focused, flash, onFocus }: ThreadCardProps) {
   const resolved = thread.status === 'resolved';
+  const ref = useRef<HTMLDivElement>(null);
+
+  // The sidebar half of the two-way focus link: focusing from the prose
+  // (clicking a highlight) scrolls this card into view, mirroring how
+  // HighlightLayer scrolls the prose when focusing from the sidebar.
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [focused]);
 
   return (
     <div
+      ref={ref}
       id={`thread-${thread.thread}`}
       onClick={() => onFocus(thread.thread)}
       className={cn(

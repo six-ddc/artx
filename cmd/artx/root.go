@@ -52,6 +52,7 @@ func NewRootCmd() *cobra.Command {
 		newAddressedCmd(),
 		newResolveCmd(),
 		newReopenCmd(),
+		newDeleteCmd(),
 		newCompactCmd(),
 		newDoctorCmd(),
 		newVaultCmd(),

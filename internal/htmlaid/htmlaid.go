@@ -266,9 +266,61 @@ func ReplaceElementHTML(src []byte, aid string, inner []byte) ([]byte, error) {
 		c = next
 	}
 	for _, n := range nodes {
+		walk(n, stripReviewerResidue)
 		target.AppendChild(n)
 	}
 	return Render(doc)
+}
+
+// reviewerClassPrefix marks classes owned by the injected reviewer script
+// (art-reviewer-editing/-highlight/-flash); they are runtime state and must
+// never be persisted into the source file.
+const reviewerClassPrefix = "art-reviewer-"
+
+// stripReviewerResidue removes the reviewer script's runtime state from a
+// node in a committed fragment: any art-reviewer-* class is dropped, and an
+// element that carried art-reviewer-editing also loses the contenteditable
+// attribute the reviewer set alongside it. contenteditable WITHOUT that
+// class signature is the artifact's own content and is left alone. This
+// guards the single write path against any client that snapshots a subtree
+// while the reviewer is still mid-edit inside it.
+func stripReviewerResidue(n *html.Node) {
+	if n.Type != html.ElementNode {
+		return
+	}
+	classes := strings.Fields(attr(n, "class"))
+	if len(classes) == 0 {
+		return
+	}
+	kept := classes[:0]
+	wasEditing := false
+	for _, c := range classes {
+		if strings.HasPrefix(c, reviewerClassPrefix) {
+			if c == "art-reviewer-editing" {
+				wasEditing = true
+			}
+			continue
+		}
+		kept = append(kept, c)
+	}
+	if len(kept) == len(classes) {
+		return
+	}
+	filtered := n.Attr[:0]
+	for _, a := range n.Attr {
+		switch {
+		case a.Key == "class":
+			if len(kept) > 0 {
+				a.Val = strings.Join(kept, " ")
+				filtered = append(filtered, a)
+			}
+		case a.Key == "contenteditable" && wasEditing:
+			// dropped: the reviewer set it when it added the class
+		default:
+			filtered = append(filtered, a)
+		}
+	}
+	n.Attr = filtered
 }
 
 // ---------------------------------------------------------------------------

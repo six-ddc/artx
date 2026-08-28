@@ -387,6 +387,14 @@ func (s *Server) handleDocEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		threadOut, statusOut = req.Thread, api.StatusOpen
 
+	case eventlog.KindDelete:
+		if req.Thread == "" {
+			WriteError(w, http.StatusBadRequest, api.ErrBadRequest, "thread is required")
+			return
+		}
+		ev = eventlog.Event{E: eventlog.KindDelete, Thread: req.Thread, By: s.resolveAuthor(req.Author)}
+		threadOut = req.Thread
+
 	default:
 		WriteError(w, http.StatusBadRequest, api.ErrBadRequest, "unknown event type: "+req.Type)
 		return
@@ -504,7 +512,7 @@ func (s *Server) handleCompact(w http.ResponseWriter, r *http.Request) {
 	var commitSHA string
 	if s.opts.Vault.Git != nil {
 		commitSHA, _ = s.opts.Vault.Git.Commit(r.Context(), gitx.CommitOptions{
-			Message: "artx: compact", Author: gitx.AuthorArtx,
+			Message: eventlog.CompactMessage(stats), Author: gitx.AuthorArtx,
 		})
 	}
 	s.hub.Broadcast(api.SSEDocs, struct{}{})
@@ -546,6 +554,10 @@ func (s *Server) handleRaw(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		// The artifact is live-edited on disk; a heuristically cached copy
+		// (this response carries no validators) would pin the iframe to a
+		// stale version across reloads.
+		w.Header().Set("Cache-Control", "no-cache")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(out)
 		return
@@ -595,7 +607,21 @@ func (s *Server) artAssetsHandler() http.Handler {
 			WriteError(w, http.StatusInternalServerError, api.ErrInternal, "dist assets unavailable")
 		})
 	}
-	return http.StripPrefix("/_artx/", http.FileServer(http.FS(fsys)))
+	fileServer := http.StripPrefix("/_artx/", http.FileServer(http.FS(fsys)))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/_artx/assets/") {
+			// Vite content-hashed filenames: any change gets a new URL, so
+			// these are safe to cache forever.
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			// Fixed-name files (reviewer.js): embed.FS responses carry no
+			// Last-Modified/ETag, so browsers heuristically cache them and
+			// keep running a stale bundle across artx upgrades. no-cache
+			// forces a refetch per load — these files are tiny.
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 }
 
 // handleSPA is the fallback for any path that isn't /api, /raw, or /_art:
@@ -615,6 +641,10 @@ func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", CSP)
+	// The shell must never be heuristically cached (no validators on
+	// embed.FS responses): a stale index.html keeps referencing old hashed
+	// bundles and every frontend fix silently fails to reach the browser.
+	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, f)
 }

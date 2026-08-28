@@ -30,6 +30,7 @@ const (
 	KindRemap     = "remap"     // emitted by the watcher: anchor offsets shifted
 	KindOrphan    = "orphan"    // emitted by the watcher: anchor text disappeared
 	KindArchive   = "archive"   // folded summary written by compact into the archive file
+	KindDelete    = "delete"    // tombstone: hides the thread and everything in it
 )
 
 // ErrCorruptTail indicates the event stream's tail contains a block that
@@ -62,6 +63,7 @@ var ErrThreadNotFound = errors.New("eventlog: thread not found")
 //	remap     : eid ts thread start end rev
 //	orphan    : eid ts thread last_exact rev
 //	archive   : eid ts thread (compact summary, only appears in .archive.yaml)
+//	delete    : eid ts thread by
 type Event struct {
 	E   string    `yaml:"e"`             // event kind, see the constants above
 	EID string    `yaml:"eid,omitempty"` // event id, the dedup key; git's merge=union can produce duplicate blocks

@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import type { DocDetail, Thread } from '@/lib/types';
+import { useRef, type MouseEvent } from 'react';
+import type { DocDetail, SelectionInput, Thread } from '@/lib/types';
 import { HighlightLayer } from './HighlightLayer';
 import { SelectionPopover } from './SelectionPopover';
 import { MermaidMath } from './MermaidMath';
@@ -7,20 +7,40 @@ import { ReviewModeBar } from './ReviewModeBar';
 
 interface MdCanvasProps {
   doc: DocDetail;
-  docId: string;
   threads: Thread[];
   reviewMode: boolean;
   readOnly: boolean;
   focusedThreadId?: string;
+  onFocusThread: (threadId: string) => void;
+  onStartComment: (selection: SelectionInput, range: Range) => void;
 }
 
-export function MdCanvas({ doc, docId, threads, reviewMode, readOnly, focusedThreadId }: MdCanvasProps) {
+export function MdCanvas({
+  doc,
+  threads,
+  reviewMode,
+  readOnly,
+  focusedThreadId,
+  onFocusThread,
+  onStartComment,
+}: MdCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // SelectionPopover's positioning origin: its nearest position:relative
   // ancestor. Must be passed separately — it can't reuse containerRef, see
   // the detailed note in SelectionPopover.tsx.
   const positionRef = useRef<HTMLDivElement>(null);
   const active = reviewMode && !readOnly;
+
+  // The reverse of HighlightLayer's echo: clicking a painted anchor focuses
+  // its thread in the sidebar. Delegated, since the marks are re-created on
+  // every highlight pass and can't carry React handlers of their own. The
+  // selector is attribute-only (not mark[...]): approx/orphan anchors carry
+  // data-art-thread on the whole block, not on a <mark>.
+  function onProseClick(e: MouseEvent<HTMLDivElement>) {
+    const mark = (e.target as Element).closest?.('[data-art-thread]');
+    const threadId = mark?.getAttribute('data-art-thread');
+    if (threadId) onFocusThread(threadId);
+  }
 
   return (
     // "Paper": the document body floats above the desk color; a marker
@@ -39,6 +59,7 @@ export function MdCanvas({ doc, docId, threads, reviewMode, readOnly, focusedThr
         <div
           ref={containerRef}
           className="art-prose mx-auto"
+          onClick={onProseClick}
           // R1 (hard rule): the single source of truth for md rendering is
           // goldmark on the Go side; DocDetail.html already carries
           // data-sourcepos. The frontend only does dangerouslySetInnerHTML —
@@ -52,7 +73,11 @@ export function MdCanvas({ doc, docId, threads, reviewMode, readOnly, focusedThr
           html={doc.html}
         />
         {active && (
-          <SelectionPopover containerRef={containerRef} positionRef={positionRef} docId={docId} />
+          <SelectionPopover
+            containerRef={containerRef}
+            positionRef={positionRef}
+            onStartComment={onStartComment}
+          />
         )}
         <MermaidMath
           containerRef={containerRef}

@@ -132,7 +132,8 @@ export type EventType =
   | 'edit'
   | 'addressed'
   | 'resolve'
-  | 'reopen';
+  | 'reopen'
+  | 'delete';
 
 export interface EventRequest {
   type: EventType;

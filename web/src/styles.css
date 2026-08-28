@@ -288,15 +288,38 @@
   --marker-highlight-bg: oklch(0.8 0.16 75 / 70%);
   --marker-highlight-fg: oklch(0.22 0.02 60);
 }
+/* Two-tier anchor echo: an unfocused anchor is a faint amber wash plus a
+   marker underline — present but not shouting, so a heavily-annotated
+   document stays readable; hover/focus restores the full highlighter fill.
+   The faint tier deliberately does NOT set color: at 25% opacity the wash
+   barely tints the body text, so inheriting stays readable in both themes;
+   the fixed --marker-highlight-fg only applies with the full-opacity fill
+   (see the contrast rationale above). Anchors are click targets (focus
+   their thread in the sidebar), hence the pointer cursor. */
 .art-anchor-exact {
-  background-color: var(--marker-highlight-bg);
-  color: var(--marker-highlight-fg);
+  background-color: oklch(0.8 0.16 75 / 25%);
+  box-shadow: inset 0 -0.14em 0 var(--marker-highlight-bg);
   border-radius: 0.2em;
   padding: 0.05em 0.15em;
   scroll-margin-block: 6rem;
+  cursor: pointer;
+}
+.art-anchor-exact:hover {
+  background-color: var(--marker-highlight-bg);
+  color: var(--marker-highlight-fg);
 }
 .art-anchor-exact.art-anchor-focused {
   background-color: oklch(0.75 0.19 55 / 90%);
+  color: var(--marker-highlight-fg);
+}
+
+/* The in-progress comment's selection echo (see lib/pending-highlight.ts):
+   full highlighter fill, so the anchor stays visible from the moment the
+   composer opens until submit/cancel — the native selection collapses as
+   soon as the textarea takes focus. */
+::highlight(art-pending) {
+  background-color: var(--marker-highlight-bg);
+  color: var(--marker-highlight-fg);
 }
 
 /* Wordmark ("artx" in the Header): the logo IS the product's core action —
@@ -320,6 +343,8 @@
   outline-offset: 3px;
   border-radius: 0.25em;
   scroll-margin-block: 6rem;
+  /* Like exact anchors, approx/orphan blocks focus their thread on click. */
+  cursor: pointer;
 }
 
 /* ---------------------------------------------------------------------

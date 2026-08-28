@@ -1,9 +1,8 @@
 import { useEffect, useState, type RefObject } from 'react';
-import { MessageSquarePlus, X } from 'lucide-react';
+import { MessageSquarePlus } from 'lucide-react';
 import { selectionInputFromRange } from '@/lib/selection';
-import { usePostEvent } from '@/lib/queries';
+import type { SelectionInput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 
 interface SelectionPopoverProps {
   /** Used for the selection hit-test ("is the selection inside the document") — not for the positioning math. */
@@ -19,7 +18,8 @@ interface SelectionPopoverProps {
    * padding-top + h1.margin-top).
    */
   positionRef: RefObject<HTMLElement | null>;
-  docId: string;
+  /** Fires with the collected anchor input; the composer itself lives in the thread sidebar (§7.2/§7.4). */
+  onStartComment: (selection: SelectionInput, range: Range) => void;
 }
 
 interface AnchorPoint {
@@ -27,17 +27,13 @@ interface AnchorPoint {
   left: number;
 }
 
-/** A selection surfaces a "Comment" button → expands into a composer → POST create (§7.2/§7.4). */
-export function SelectionPopover({ containerRef, positionRef, docId }: SelectionPopoverProps) {
+/** A selection surfaces a "Comment" trigger; clicking it hands the anchor off to the sidebar composer. */
+export function SelectionPopover({ containerRef, positionRef, onStartComment }: SelectionPopoverProps) {
   const [range, setRange] = useState<Range | null>(null);
   const [anchor, setAnchor] = useState<AnchorPoint | null>(null);
-  const [composing, setComposing] = useState(false);
-  const [body, setBody] = useState('');
-  const postEvent = usePostEvent(docId);
 
   useEffect(() => {
     function onSelectionChange() {
-      if (composing) return; // Don't let the browser's selection change interrupt an in-progress comment
       const container = containerRef.current;
       const positionEl = positionRef.current;
       const sel = window.getSelection();
@@ -63,20 +59,18 @@ export function SelectionPopover({ containerRef, positionRef, docId }: Selection
     }
     document.addEventListener('selectionchange', onSelectionChange);
     return () => document.removeEventListener('selectionchange', onSelectionChange);
-  }, [containerRef, positionRef, composing]);
+  }, [containerRef, positionRef]);
 
-  function closeAll() {
-    setRange(null);
-    setAnchor(null);
-    setComposing(false);
-    setBody('');
-  }
-
-  function submit() {
-    if (!range || !body.trim()) return;
+  function start() {
+    if (!range) return;
     const selection = selectionInputFromRange(range);
     if (!selection) return;
-    postEvent.mutate({ type: 'create', body: body.trim(), selection }, { onSuccess: closeAll });
+    onStartComment(selection, range);
+    // The native selection has served its purpose; clearing it avoids a
+    // double echo next to the pending highlight the parent paints.
+    window.getSelection()?.removeAllRanges();
+    setRange(null);
+    setAnchor(null);
   }
 
   if (!anchor) return null;
@@ -86,33 +80,10 @@ export function SelectionPopover({ containerRef, positionRef, docId }: Selection
       className="art-pop-in absolute z-20 -translate-x-1/2 -translate-y-full"
       style={{ top: anchor.top, left: anchor.left }}
     >
-      {!composing ? (
-        <Button size="sm" onMouseDown={(e) => e.preventDefault()} onClick={() => setComposing(true)}>
-          <MessageSquarePlus className="size-3.5" />
-          Comment
-        </Button>
-      ) : (
-        <div
-          className="w-72 rounded border border-line bg-sheet p-2 shadow-lg"
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <Textarea
-            autoFocus
-            rows={3}
-            placeholder="Add a comment…"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
-          <div className="mt-2 flex items-center justify-end gap-1.5">
-            <Button variant="ghost" size="sm" onClick={closeAll}>
-              <X className="size-3.5" />
-            </Button>
-            <Button size="sm" disabled={!body.trim() || postEvent.isPending} onClick={submit}>
-              {postEvent.isPending ? 'Submitting…' : 'Submit'}
-            </Button>
-          </div>
-        </div>
-      )}
+      <Button size="sm" onMouseDown={(e) => e.preventDefault()} onClick={start}>
+        <MessageSquarePlus className="size-3.5" />
+        Comment
+      </Button>
     </div>
   );
 }
