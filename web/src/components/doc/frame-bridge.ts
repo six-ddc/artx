@@ -1,11 +1,15 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { ART_PROTOCOL, isArtMessage } from '@/lib/protocol';
-import type { FromFrame, HighlightMsg, ModeMsg, ScrollToMsg, ToFrame } from '@/lib/protocol';
+import type { DiffOpsMsg, FromFrame, HighlightMsg, ModeMsg, ScrollToMsg, ToFrame } from '@/lib/protocol';
 
 // Omit<ToFrame, 'art'> would collapse to `keyof` the *intersection* of all
 // union members (only `type` is common) and silently drop mode/aids/aid.
 // Spell the union out explicitly so each variant keeps its own fields.
-type OutgoingToFrame = Omit<ModeMsg, 'art'> | Omit<HighlightMsg, 'art'> | Omit<ScrollToMsg, 'art'>;
+type OutgoingToFrame =
+  | Omit<ModeMsg, 'art'>
+  | Omit<HighlightMsg, 'art'>
+  | Omit<ScrollToMsg, 'art'>
+  | Omit<DiffOpsMsg, 'art'>;
 
 /**
  * Shell-side postMessage send/receive (§7.5).

@@ -352,6 +352,7 @@ Base URL: `http://127.0.0.1:7777` (can be changed by `--port` / vault config). A
 | GET | `/api/docs/{id}` | — | `DocDetail` |
 | GET | `/api/docs/{id}/raw` | — | `text/plain` source file bytes |
 | GET | `/api/docs/{id}/history` | — | `{"commits":[{sha,subject,author,date}]}` |
+| GET | `/api/docs/{id}/diff?from=<sha>[&to=<sha>]` | — | `DiffResponse` |
 | GET | `/api/docs/{id}/comments` | — | `CommentsResponse` |
 | POST | `/api/docs/{id}/events` | `EventRequest` | `EventResponse` |
 | POST | `/api/docs/{id}/block` | `{start, end, original, content}` | md block-level source editing; `original` must equal the current `src[start:end]` byte slice (409 `conflict` otherwise) |
@@ -363,6 +364,13 @@ Base URL: `http://127.0.0.1:7777` (can be changed by `--port` / vault config). A
 | GET | `/`, `/a/{id}`, any other non-`/api` path | — | SPA shell `index.html` |
 
 `GET /api/docs/{id}` supports the query parameter `?v=<sha>`: it renders the content at that git revision, and `rev0` in the response is that sha. Historical versions are **read-only**; POSTing events to a historical version returns 409 `conflict`.
+
+`GET /api/docs/{id}/diff` compares two versions of a document. `from` (required) is the old revision; `to` defaults to the working copy. Missing git history or an unknown sha → 404 `not_found`. The `DiffResponse` shape (`internal/api/api.go`, mirrored in `types.ts`) is type-neutral at the envelope (`doc/type/from/to/hunks/stats`) with one type-specific list:
+
+- **md** → `blocks`: top-level block ops (`unchanged`/`modified`/`added`/`removed`) in new-document order, with each removed block already inserted before its old successor. `from`/`to` are `[start,end)` file-absolute byte ranges — `to` joins against the new version's rendered `data-sourcepos`. A `modified` block carries `added_texts`/`removed_texts` (raw source segments for word-level highlighting); a `removed` block carries `html` rendered against the **old** version whole (blocks that don't render addressably — raw HTML blocks, link reference definitions — fall back to the escaped source slice wrapped in `<pre>`; `html` is never empty). `frontmatter_changed` flags header-only edits, which `blocks` does not cover.
+- **html** → `elements`: per-`data-aid` ops (`changed`/`added`/`removed`, unchanged elements omitted) with deepest attribution — a parent only turns `changed` when content it owns directly changed. A `removed` element carries its old outerHTML for the sidebar. `chrome_changed` flags head/style/script differences that element ops cannot attribute.
+
+Both types share `hunks` (unified line diff, 3 context lines) for the source view and `stats` (`added/removed/modified`; for html, `modified` counts `changed` elements). On the frontend, the doc route's `?cmp=<sha>` parameter means "compare `cmp` → (`v` ?? working copy)" and forces read-only compare mode.
 
 ### 5.2 Request/response structures
 

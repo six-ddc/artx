@@ -60,6 +60,15 @@
   --status-open: oklch(0.666 0.179 58.32); /* amber */
   --status-addressed: oklch(0.546 0.245 262.88); /* blue */
   --status-resolved: oklch(0.627 0.194 149.21); /* green */
+
+  /* Version-diff semantics, chrome-side: the DiffToolbar's stat dots and the
+     unified view's faint line tints. Same dot-next-to-neutral-text language
+     as the status tokens. The in-document diff washes do NOT use these —
+     they're hardcoded next to the marker colors at the bottom of this file,
+     for the same dark-mode contrast reason. */
+  --diff-added: oklch(0.627 0.194 149.21); /* green */
+  --diff-removed: oklch(0.577 0.245 27.325); /* red */
+  --diff-modified: oklch(0.681 0.155 85); /* yellow */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -87,6 +96,10 @@
     --status-open: oklch(0.828 0.189 84.43);
     --status-addressed: oklch(0.707 0.165 254.62);
     --status-resolved: oklch(0.792 0.209 151.71);
+
+    --diff-added: oklch(0.792 0.209 151.71);
+    --diff-removed: oklch(0.704 0.191 22.216);
+    --diff-modified: oklch(0.828 0.189 84.43);
   }
 }
 
@@ -114,6 +127,10 @@
   --status-open: oklch(0.828 0.189 84.43);
   --status-addressed: oklch(0.707 0.165 254.62);
   --status-resolved: oklch(0.792 0.209 151.71);
+
+  --diff-added: oklch(0.792 0.209 151.71);
+  --diff-removed: oklch(0.704 0.191 22.216);
+  --diff-modified: oklch(0.828 0.189 84.43);
 }
 
 @theme inline {
@@ -140,6 +157,10 @@
   --color-status-open: var(--status-open);
   --color-status-addressed: var(--status-addressed);
   --color-status-resolved: var(--status-resolved);
+
+  --color-diff-added: var(--diff-added);
+  --color-diff-removed: var(--diff-removed);
+  --color-diff-modified: var(--diff-modified);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -475,6 +496,80 @@ art-icon svg {
 ::highlight(art-pending) {
   background-color: var(--marker-highlight-bg);
   color: var(--marker-highlight-fg);
+}
+
+/* ---------------------------------------------------------------------
+   Version-diff washes inside the rendered document (MdDiffCanvas). Like
+   the marker colors above, these are hardcoded bg/fg pairs rather than
+   theme tokens: a low-opacity theme color layered onto dark body text
+   keeps the text light and drops contrast to unreadable (the
+   dark-mode lesson documented at the marker block). The block-level
+   washes follow the faint-tier precedent and deliberately do NOT set
+   color: at ~30% opacity the wash barely tints the text, so inheriting
+   stays readable in both themes — and forcing a fg on a whole block
+   would flatten the syntax-highlight colors inside code blocks. Only the
+   word-level insert highlight, a full-strength fill on short spans, sets
+   its fg (same pattern as ::highlight(art-pending)). */
+:root {
+  --diff-added-wash: oklch(0.87 0.11 152 / 30%);
+  --diff-removed-wash: oklch(0.8 0.1 25 / 26%);
+  --diff-modified-wash: oklch(0.87 0.13 95 / 30%);
+  --diff-ins-bg: oklch(0.84 0.16 150 / 75%);
+  --diff-ins-fg: oklch(0.23 0.05 150);
+}
+/* Bleed the wash slightly past the text column so it reads as a band the
+   block sits on, not a text highlight; no radius and box-decoration-break
+   keep adjacent washed blocks fusing into one continuous run. */
+.art-diff-added,
+.art-diff-modified,
+.art-diff-removed {
+  padding-block: 0.25rem;
+  padding-inline: 0.6rem;
+  margin-inline: -0.6rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.art-diff-added {
+  background-color: var(--diff-added-wash);
+}
+/* Modified blocks read green-first, matching the source diff's red/green
+   language: when the changed words were located, the green word-level
+   highlight carries the change and the block wash clears (.art-diff-located,
+   set by MdDiffCanvas together with the Highlight registration). Yellow is
+   the DEGRADED state only — the words couldn't be pinned down (or the
+   modification was purely a deletion), so the whole block signals
+   "something in here changed". */
+.art-diff-modified {
+  background-color: var(--diff-modified-wash);
+}
+.art-diff-modified.art-diff-located {
+  background-color: transparent;
+}
+/* A removed block is re-inserted content that no longer exists: red wash
+   plus lowered opacity (not a strikethrough — line-through would smear
+   across code blocks, images and mermaid diagrams). */
+.art-diff-removed {
+  background-color: var(--diff-removed-wash);
+  opacity: 0.75;
+}
+.art-diff-removed > * + * {
+  margin-top: 0.9em;
+}
+/* Word-level inserted text inside a modified block (CSS Custom Highlight,
+   registered by MdDiffCanvas). */
+::highlight(art-diff-ins) {
+  background-color: var(--diff-ins-bg);
+  color: var(--diff-ins-fg);
+}
+
+/* Unified source view (UnifiedDiffView): faint per-line tints, chrome-side
+   so the diff tokens apply — same color-mix pattern as the chroma .gd/.gi
+   rules above. */
+.art-diff-line-add {
+  background-color: color-mix(in oklch, var(--diff-added) 12%, transparent);
+}
+.art-diff-line-del {
+  background-color: color-mix(in oklch, var(--diff-removed) 12%, transparent);
 }
 
 /* Block-edit preview (BlockEditLayer): with the Edit tool armed, the block

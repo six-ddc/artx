@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 
 export function DropdownMenuContent({
   className,
@@ -41,6 +42,18 @@ export function DropdownMenuItem({
           : 'focus:bg-accent focus:text-accent-foreground',
         className,
       )}
+      {...props}
+    />
+  );
+}
+
+export function DropdownMenuLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
+  return (
+    <DropdownMenuPrimitive.Label
+      className={cn('px-2 py-1.5 text-xs font-medium text-muted-foreground', className)}
       {...props}
     />
   );

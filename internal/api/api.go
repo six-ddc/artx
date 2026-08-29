@@ -90,6 +90,91 @@ type DocsResponse struct {
 }
 
 // ---------------------------------------------------------------------------
+// Version diff
+// ---------------------------------------------------------------------------
+
+// Diff operations for md blocks and html elements.
+const (
+	DiffUnchanged = "unchanged" // md block present in both versions with identical content
+	DiffModified  = "modified"  // md block kept its place but its content was edited
+	DiffAdded     = "added"     // only in the new version
+	DiffRemoved   = "removed"   // only in the old version
+	DiffChanged   = "changed"   // html element kept its data-aid but its own content changed
+)
+
+// Diff hunk line operations.
+const (
+	DiffLineCtx = "ctx"
+	DiffLineDel = "del"
+	DiffLineAdd = "add"
+)
+
+// DiffBlock is the fate of one md top-level block between two versions.
+// From/To are [start,end) **file-absolute byte ranges** in the old/new
+// source; To doubles as the join key against the new version's rendered
+// data-sourcepos. Blocks are listed in new-document order, with each removed
+// block already inserted before its original successor — the frontend never
+// has to re-sort.
+type DiffBlock struct {
+	Op           string   `json:"op"`                      // DiffUnchanged | DiffModified | DiffAdded | DiffRemoved
+	From         []int    `json:"from,omitempty"`          // range in the old source; modified/removed only
+	To           []int    `json:"to,omitempty"`            // range in the new source; absent for removed
+	AddedTexts   []string `json:"added_texts,omitempty"`   // modified only: inserted source-text segments
+	RemovedTexts []string `json:"removed_texts,omitempty"` // modified only: deleted source-text segments
+	HTML         string   `json:"html,omitempty"`          // removed only: the block rendered against the old version
+}
+
+// DiffElement is the fate of one html element (identified by its stable
+// data-aid) between two versions. Unchanged elements are not listed.
+type DiffElement struct {
+	Op   string `json:"op"`             // DiffChanged | DiffAdded | DiffRemoved
+	AID  string `json:"aid"`            // the element's data-aid
+	HTML string `json:"html,omitempty"` // removed only: the element's old outerHTML, for the "deleted elements" sidebar
+}
+
+// DiffLine is one line of a unified hunk.
+type DiffLine struct {
+	Op   string `json:"op"` // DiffLineCtx | DiffLineDel | DiffLineAdd
+	Text string `json:"text"`
+}
+
+// DiffHunk is a unified-diff hunk over the raw source (3 context lines),
+// shared by md and html documents for the source view.
+type DiffHunk struct {
+	FromStart int        `json:"from_start"` // 1-based first line in the old source
+	FromCount int        `json:"from_count"`
+	ToStart   int        `json:"to_start"` // 1-based first line in the new source
+	ToCount   int        `json:"to_count"`
+	Lines     []DiffLine `json:"lines"`
+}
+
+// DiffStats aggregates a diff for the toolbar. For html documents, Modified
+// counts DiffChanged elements.
+type DiffStats struct {
+	Added    int `json:"added"`
+	Removed  int `json:"removed"`
+	Modified int `json:"modified"`
+}
+
+// DiffResponse is the response body for
+// GET /api/docs/{id}/diff?from=<sha>[&to=<sha>].
+type DiffResponse struct {
+	Doc  string `json:"doc"`
+	Type string `json:"type"` // DocTypeMD | DocTypeHTML
+	From string `json:"from"` // old revision, echoed exactly as the caller passed it (any git rev)
+	To   string `json:"to"`   // new revision, echoed as passed; "" means the working copy
+
+	Blocks   []DiffBlock   `json:"blocks,omitempty"`   // md only
+	Elements []DiffElement `json:"elements,omitempty"` // html only
+
+	Hunks []DiffHunk `json:"hunks"` // unified source view, both types
+	Stats DiffStats  `json:"stats"`
+
+	FrontmatterChanged bool `json:"frontmatter_changed,omitempty"` // md only; Blocks covers the body alone
+	ChromeChanged      bool `json:"chrome_changed,omitempty"`      // html only: head/style/script changed, element ops don't cover it
+}
+
+// ---------------------------------------------------------------------------
 // Comment threads
 // ---------------------------------------------------------------------------
 

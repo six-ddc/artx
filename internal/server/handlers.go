@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	stdhtml "html"
 	"io"
 	"net/http"
 	"os"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/six-ddc/artx/internal/anchor"
 	"github.com/six-ddc/artx/internal/api"
+	"github.com/six-ddc/artx/internal/docdiff"
 	"github.com/six-ddc/artx/internal/eventlog"
 	"github.com/six-ddc/artx/internal/gitx"
 	"github.com/six-ddc/artx/internal/htmlaid"
@@ -185,6 +188,120 @@ func (s *Server) handleDocHistory(w http.ResponseWriter, r *http.Request) {
 		commits = []gitx.Commit{}
 	}
 	WriteJSON(w, http.StatusOK, map[string]any{"commits": commits})
+}
+
+// handleDocDiff implements GET /api/docs/{id}/diff?from=<sha>[&to=<sha>]:
+// a version-to-version comparison. from is required; an omitted to means the
+// working copy, so the endpoint covers both "historical vs current" and
+// "historical vs historical" with one shape. The heavy lifting lives in
+// internal/docdiff; this handler only fetches the two sources, fills each
+// removed md block's HTML from a full render of the OLD version, and
+// assembles the response.
+func (s *Server) handleDocDiff(w http.ResponseWriter, r *http.Request) {
+	if s.vault == nil {
+		WriteError(w, http.StatusInternalServerError, api.ErrInternal, "vault unavailable")
+		return
+	}
+	id := r.PathValue("id")
+	a, err := s.vault.Lookup(id)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
+
+	from := r.URL.Query().Get("from")
+	if from == "" {
+		WriteError(w, http.StatusBadRequest, api.ErrBadRequest, "from is required")
+		return
+	}
+	to := r.URL.Query().Get("to")
+	if s.opts.Vault == nil || s.opts.Vault.Git == nil {
+		WriteError(w, http.StatusNotFound, api.ErrNotFound, "no git history available")
+		return
+	}
+	git := s.opts.Vault.Git
+
+	// A missing repo and an unknown sha both surface here as errors; either
+	// way the requested version doesn't exist.
+	srcA, err := git.ShowFile(r.Context(), from, a.RelPath)
+	if err != nil {
+		WriteError(w, http.StatusNotFound, api.ErrNotFound, "revision not found: "+from)
+		return
+	}
+	var srcB []byte
+	if to != "" {
+		srcB, err = git.ShowFile(r.Context(), to, a.RelPath)
+		if err != nil {
+			WriteError(w, http.StatusNotFound, api.ErrNotFound, "revision not found: "+to)
+			return
+		}
+	} else {
+		srcB, err = s.vault.ReadSource(a)
+		if err != nil {
+			s.writeErr(w, err)
+			return
+		}
+	}
+
+	resp := api.DiffResponse{
+		Doc: a.ID, Type: a.Type, From: from, To: to,
+		Hunks: docdiff.Unified(srcA, srcB),
+	}
+
+	switch a.Type {
+	case api.DocTypeMD:
+		blocks, stats := docdiff.BlockOps(srcA, srcB)
+		// BlockOps only covers the body; a frontmatter-only edit is reported
+		// through this flag (the hunks naturally cover the whole file).
+		fmA, _ := mdsrc.SplitFrontmatter(srcA)
+		fmB, _ := mdsrc.SplitFrontmatter(srcB)
+		resp.FrontmatterChanged = !bytes.Equal(fmA, fmB)
+		if stats.Removed > 0 {
+			var idx map[string]string
+			if res, rerr := s.renderer.Render(srcA); rerr == nil {
+				idx = docdiff.TopLevelBySourcepos(res.HTML)
+			}
+			for i := range blocks {
+				if blocks[i].Op != api.DiffRemoved || len(blocks[i].From) != 2 {
+					continue
+				}
+				if h := idx[fmt.Sprintf("%d:%d", blocks[i].From[0], blocks[i].From[1])]; h != "" {
+					blocks[i].HTML = h
+					continue
+				}
+				// The index has gaps: goldmark emits raw HTML blocks without a
+				// data-sourcepos and link reference definitions without any
+				// node at all, and a failed render of the old version loses
+				// the whole index. Deleted content must never come back blank,
+				// so fall back to the escaped source slice.
+				lo, hi := blocks[i].From[0], blocks[i].From[1]
+				if lo >= 0 && hi <= len(srcA) && lo < hi {
+					blocks[i].HTML = "<pre>" + stdhtml.EscapeString(string(srcA[lo:hi])) + "</pre>"
+				}
+			}
+		}
+		resp.Blocks = blocks
+		resp.Stats = stats
+	case api.DocTypeHTML:
+		elems, chrome, derr := docdiff.ElementOps(srcA, srcB)
+		if derr != nil {
+			WriteError(w, http.StatusInternalServerError, api.ErrInternal, derr.Error())
+			return
+		}
+		resp.Elements = elems
+		resp.ChromeChanged = chrome
+		for _, e := range elems {
+			switch e.Op {
+			case api.DiffAdded:
+				resp.Stats.Added++
+			case api.DiffRemoved:
+				resp.Stats.Removed++
+			case api.DiffChanged:
+				resp.Stats.Modified++
+			}
+		}
+	}
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleDocComments(w http.ResponseWriter, r *http.Request) {

@@ -35,6 +35,8 @@ const HIGHLIGHT_CLASS = 'art-reviewer-highlight';
 const FLASH_CLASS = 'art-reviewer-flash';
 const OUTLINE_CLASS = 'art-reviewer-editing';
 const PICKING_CLASS = 'art-reviewer-picking';
+const DIFF_CHANGED_CLASS = 'art-reviewer-diff-changed';
+const DIFF_ADDED_CLASS = 'art-reviewer-diff-added';
 
 type Mode = ModeMsg['mode'];
 
@@ -86,6 +88,8 @@ function injectStyle(): void {
     .${FLASH_CLASS} { animation: art-reviewer-flash-kf 1.1s ease-out; }
     .${OUTLINE_CLASS} { outline: 2px dashed rgba(37, 99, 235, 0.9); outline-offset: 2px; }
     .${PICKING_CLASS}, .${PICKING_CLASS} * { cursor: crosshair !important; }
+    .${DIFF_CHANGED_CLASS} { outline: 2px solid rgba(234, 179, 8, 0.9); outline-offset: 2px; }
+    .${DIFF_ADDED_CLASS} { outline: 2px solid rgba(34, 197, 94, 0.9); outline-offset: 2px; }
     @keyframes art-reviewer-flash-kf {
       0% { background-color: rgba(234, 179, 8, 0.45); }
       100% { background-color: transparent; }
@@ -98,6 +102,8 @@ class Reviewer {
   private mode: Mode = 'browse';
   private lastHoverAid: string | null = null;
   private highlighted = new Set<string>();
+  private diffChanged = new Set<string>();
+  private diffAdded = new Set<string>();
   private editingEl: HTMLElement | null = null;
   /** True once any message from the parent has arrived — proof the shell's listener is attached. */
   private acked = false;
@@ -199,6 +205,9 @@ class Reviewer {
       case 'scrollTo':
         this.scrollToAid(msg.aid);
         break;
+      case 'diffOps':
+        this.setDiffOps(msg.changed, msg.added);
+        break;
     }
   }
 
@@ -208,13 +217,36 @@ class Reviewer {
     }
     this.mode = mode;
     // Picker feedback: review/edit turn the whole page's cursor into a
-    // crosshair, so "this click picks an element" is visible before it lands.
-    document.documentElement.classList.toggle(PICKING_CLASS, mode !== 'browse');
-    if (mode === 'browse') {
+    // crosshair, so "this click picks an element" is visible before it
+    // lands. diff is a passive overlay like browse — no crosshair.
+    document.documentElement.classList.toggle(PICKING_CLASS, mode === 'review' || mode === 'edit');
+    if (mode === 'browse' || mode === 'diff') {
       this.lastHoverAid = null;
       const msg: Omit<HoverMsg, 'art'> = { type: 'hover', aid: null, rect: null, tag: '' };
       post(msg);
     }
+    if (mode !== 'diff') {
+      this.setDiffOps([], []);
+    }
+  }
+
+  private setDiffOps(changed: string[], added: string[]): void {
+    const nextChanged = new Set(changed);
+    const nextAdded = new Set(added);
+    for (const aid of this.diffChanged) {
+      if (!nextChanged.has(aid)) this.findByAid(aid)?.classList.remove(DIFF_CHANGED_CLASS);
+    }
+    for (const aid of this.diffAdded) {
+      if (!nextAdded.has(aid)) this.findByAid(aid)?.classList.remove(DIFF_ADDED_CLASS);
+    }
+    for (const aid of nextChanged) {
+      this.findByAid(aid)?.classList.add(DIFF_CHANGED_CLASS);
+    }
+    for (const aid of nextAdded) {
+      this.findByAid(aid)?.classList.add(DIFF_ADDED_CLASS);
+    }
+    this.diffChanged = nextChanged;
+    this.diffAdded = nextAdded;
   }
 
   private setHighlight(aids: string[]): void {

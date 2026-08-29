@@ -289,6 +289,7 @@ func (s *Server) BaseURL() string {
 //	GET  /api/docs/{id}
 //	GET  /api/docs/{id}/raw
 //	GET  /api/docs/{id}/history
+//	GET  /api/docs/{id}/diff          version-to-version comparison (?from=sha[&to=sha])
 //	GET  /api/docs/{id}/comments
 //	POST /api/docs/{id}/events
 //	POST /api/docs/{id}/element      (M2)
@@ -309,6 +310,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/docs/{id}", s.handleDocDetail)
 	mux.HandleFunc("GET /api/docs/{id}/raw", s.handleDocRawText)
 	mux.HandleFunc("GET /api/docs/{id}/history", s.handleDocHistory)
+	mux.HandleFunc("GET /api/docs/{id}/diff", s.handleDocDiff)
 	mux.HandleFunc("GET /api/docs/{id}/comments", s.handleDocComments)
 	mux.HandleFunc("POST /api/docs/{id}/events", s.handleDocEvents)
 	mux.HandleFunc("POST /api/docs/{id}/element", s.handleDocElement)

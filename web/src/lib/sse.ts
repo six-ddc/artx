@@ -13,7 +13,10 @@ export type SSEStatus = 'connecting' | 'open' | 'closed';
  * and its parsed payload, returns the list of query keys to invalidate.
  *
  * - comments → invalidate(['comments', doc])
- * - doc      → invalidate(['doc', doc]); also ['comments', doc] when kind === 'remap'
+ * - doc      → invalidate(['doc', doc]), ['history', doc] and ['diff', doc]
+ *              (a content change lands a git commit, so the version list and
+ *              any diff against the working copy are stale too); also
+ *              ['comments', doc] when kind === 'remap'
  * - docs     → invalidate(['docs'])
  * - ping     → none (heartbeat only)
  */
@@ -25,8 +28,9 @@ export function invalidationKeysForEvent(type: ArtSSEEventType, data: unknown): 
     }
     case 'doc': {
       const { doc, kind } = data as SSEDocChange;
-      // Partial key without rev: prefix-matches every version query for this doc.
-      const keys: QueryKey[] = [['doc', doc]];
+      // ['doc', doc] and ['diff', doc] are partial keys without rev/from/to:
+      // they prefix-match every version and compare query for this doc.
+      const keys: QueryKey[] = [['doc', doc], queryKeys.history(doc), ['diff', doc]];
       if (kind === 'remap') {
         keys.push(queryKeys.comments(doc));
       }

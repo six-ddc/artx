@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import type { SelectionInput } from '@/lib/types';
-import { useComments, useDoc } from '@/lib/queries';
+import { useComments, useDoc, useDocDiff } from '@/lib/queries';
 import { clearPendingHighlight, setPendingHighlight } from '@/lib/pending-highlight';
 import { DocHeaderBar } from '@/components/doc/DocHeaderBar';
 import { MdCanvas } from '@/components/doc/MdCanvas';
 import { HtmlCanvas } from '@/components/doc/HtmlCanvas';
+import { MdDiffCanvas } from '@/components/doc/MdDiffCanvas';
+import { DiffToolbar, type DiffViewMode } from '@/components/doc/DiffToolbar';
+import { UnifiedDiffView } from '@/components/doc/UnifiedDiffView';
 import { ThreadSidebar } from '@/components/threads/ThreadSidebar';
 import { CommentComposer } from '@/components/threads/CommentComposer';
 
@@ -14,6 +17,8 @@ export interface DocViewSearch {
   v?: string;
   /** The focused thread id. */
   t?: string;
+  /** Compare-from sha; when set the view diffs cmp → (v ?? working copy). */
+  cmp?: string;
 }
 
 const routeApi = getRouteApi('/a/$docId');
@@ -34,9 +39,17 @@ export function DocView() {
   // to open exactly when the doc has open threads — a clean doc reads as a
   // plain page, a doc under review leads with its marginalia.
   const [commentsChoice, setCommentsChoice] = useState<boolean | null>(null);
+  // Rendered | Source inside the compare view. Local state, not URL: the
+  // switch is a reading aid, not an address.
+  const [diffView, setDiffView] = useState<DiffViewMode>('rendered');
 
+  // Compare mode is strictly read-only: no comment drawer, no highlight or
+  // edit layers — anchor offsets are computed against the working copy, and
+  // a document with removed blocks spliced back in can't line up with them.
+  const comparing = Boolean(search.cmp);
   const readOnly = Boolean(search.v);
   const docQuery = useDoc(docId, search.v);
+  const diffQuery = useDocDiff(docId, search.cmp, search.v);
   const commentsQuery = useComments(docId);
   const threads = commentsQuery.data?.threads ?? [];
   const openCount = threads.filter((t) => t.status === 'open').length;
@@ -48,6 +61,15 @@ export function DocView() {
     return () => clearPendingHighlight();
   }, [docId]);
 
+  // Entering (or switching) a compare drops any half-written comment and
+  // starts back at the rendered view.
+  useEffect(() => {
+    if (!comparing) return;
+    clearPendingHighlight();
+    setPending(null);
+    setDiffView('rendered');
+  }, [comparing, search.cmp]);
+
   // Focusing a thread (clicking a highlight in the prose, or arriving with
   // ?t=) must surface its card even when the drawer is closed.
   useEffect(() => {
@@ -56,6 +78,16 @@ export function DocView() {
 
   function setRev(rev: string | undefined) {
     void navigate({ search: (prev) => ({ ...prev, v: rev }) });
+  }
+
+  function startCompare(sha: string) {
+    // Always compares against the working copy: viewing a version is a
+    // separate concern, so v clears.
+    void navigate({ search: (prev) => ({ ...prev, cmp: sha, v: undefined }) });
+  }
+
+  function exitCompare() {
+    void navigate({ search: (prev) => ({ ...prev, cmp: undefined }) });
   }
 
   function focusThread(threadId: string) {
@@ -101,13 +133,53 @@ export function DocView() {
         rev={search.v}
         onRevChange={setRev}
         readOnly={readOnly}
+        onCompare={startCompare}
+        comparing={comparing}
         openCount={openCount}
         commentsOpen={commentsOpen}
         onToggleComments={() => setCommentsChoice(!commentsOpen)}
       />
+      {comparing && search.cmp && (
+        <DiffToolbar
+          diff={diffQuery.data}
+          from={search.cmp}
+          to={search.v}
+          view={diffView}
+          onViewChange={setDiffView}
+          onClose={exitCompare}
+        />
+      )}
       <div className="flex min-h-[calc(100dvh-3rem)] items-start">
         <div className="min-w-0 flex-1">
-          {doc.type === 'md' ? (
+          {comparing ? (
+            diffQuery.isError ? (
+              <p className="p-6 text-sm text-destructive">
+                Failed to load diff: {diffQuery.error.message}
+              </p>
+            ) : diffView === 'source' ? (
+              diffQuery.data ? (
+                <UnifiedDiffView hunks={diffQuery.data.hunks} />
+              ) : (
+                <p className="p-6 text-sm text-muted-foreground">Loading diff…</p>
+              )
+            ) : doc.type === 'md' ? (
+              diffQuery.data ? (
+                <MdDiffCanvas doc={doc} diff={diffQuery.data} />
+              ) : (
+                <p className="p-6 text-sm text-muted-foreground">Loading diff…</p>
+              )
+            ) : diffQuery.data ? (
+              <HtmlCanvas
+                doc={doc}
+                docId={docId}
+                threads={threads}
+                readOnly
+                diff={diffQuery.data}
+              />
+            ) : (
+              <p className="p-6 text-sm text-muted-foreground">Loading diff…</p>
+            )
+          ) : doc.type === 'md' ? (
             <MdCanvas
               doc={doc}
               docId={docId}
@@ -127,7 +199,7 @@ export function DocView() {
             />
           )}
         </div>
-        {commentsOpen && (
+        {commentsOpen && !comparing && (
           <ThreadSidebar
             docId={docId}
             threads={threads}

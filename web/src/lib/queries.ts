@@ -12,6 +12,8 @@ export const queryKeys = {
   history: (docId: string): QueryKey => ['history', docId],
   comments: (docId: string): QueryKey => ['comments', docId],
   raw: (docId: string): QueryKey => ['raw', docId],
+  /** to undefined means against the working copy. Invalidate via the ['diff', docId] prefix. */
+  diff: (docId: string, from: string, to?: string): QueryKey => ['diff', docId, from, to],
 };
 
 export function useHealth() {
@@ -39,6 +41,15 @@ export function useHistory(docId: string) {
     queryKey: queryKeys.history(docId),
     queryFn: () => api.history(docId),
     enabled: docId.length > 0,
+  });
+}
+
+/** Version compare (from → to ?? working copy); only fetched while a compare is active. */
+export function useDocDiff(docId: string, from?: string, to?: string) {
+  return useQuery({
+    queryKey: queryKeys.diff(docId, from ?? '', to),
+    queryFn: () => api.diff(docId, from ?? '', to),
+    enabled: docId.length > 0 && Boolean(from),
   });
 }
 
@@ -76,7 +87,11 @@ export function useRawSource(docId: string, enabled: boolean) {
   });
 }
 
-/** md block edit write-back; both the rendered doc and the raw source are stale on success. */
+/**
+ * md block edit write-back; the rendered doc and the raw source are stale on
+ * success — and so are the commit history (every save lands a git commit)
+ * and any diff against the working copy, hence the extra invalidations.
+ */
 export function usePostBlock(docId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -85,17 +100,21 @@ export function usePostBlock(docId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.doc(docId, undefined) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.raw(docId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.history(docId) });
+      void queryClient.invalidateQueries({ queryKey: ['diff', docId] });
     },
   });
 }
 
-/** M2: element edit write-back; refresh the doc's content on success (html changed). */
+/** M2: element edit write-back; refresh the doc's content on success (html changed), plus history/diff like usePostBlock. */
 export function usePostElement(docId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: { aid: string; html: string }) => api.postElement(docId, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.doc(docId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.history(docId) });
+      void queryClient.invalidateQueries({ queryKey: ['diff', docId] });
     },
   });
 }

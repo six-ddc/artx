@@ -3,6 +3,7 @@
 
 import type {
   CommentsResponse,
+  DiffResponse,
   DocDetail,
   DocsResponse,
   ErrorResponse,
@@ -75,6 +76,12 @@ export const api = {
     request<DocDetail>(`${docPath(id)}${rev ? `?v=${encodeURIComponent(rev)}` : ''}`),
 
   history: (id: string) => request<HistoryResponse>(`${docPath(id)}/history`),
+
+  /** Version compare, from → to; `to` omitted means against the working copy. */
+  diff: (id: string, from: string, to?: string) =>
+    request<DiffResponse>(
+      `${docPath(id)}/diff?from=${encodeURIComponent(from)}${to ? `&to=${encodeURIComponent(to)}` : ''}`,
+    ),
 
   comments: (id: string) => request<CommentsResponse>(`${docPath(id)}/comments`),
 

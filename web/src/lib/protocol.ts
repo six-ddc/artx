@@ -80,10 +80,10 @@ export type FromFrame = ReadyMsg | HoverMsg | PickMsg | SizeMsg | ScrollMsg | Ed
 
 // --- shell → iframe ---------------------------------------------------------
 
-/** Switches interaction mode. browse = normal demo use; review = hover to outline, click to pick an aid; edit = M2. */
+/** Switches interaction mode. browse = normal demo use; review = hover to outline, click to pick an aid; edit = M2; diff = version compare (read-only, outlines driven by DiffOpsMsg). */
 export interface ModeMsg extends Base {
   type: 'mode';
-  mode: 'browse' | 'review' | 'edit';
+  mode: 'browse' | 'review' | 'edit' | 'diff';
 }
 
 /** Tells the reviewer which aids have comments attached, so it can give them a persistent marker. */
@@ -98,7 +98,19 @@ export interface ScrollToMsg extends Base {
   aid: string;
 }
 
-export type ToFrame = ModeMsg | HighlightMsg | ScrollToMsg;
+/**
+ * Version-compare outlines for diff mode: changed elements get the yellow
+ * outline, added ones the green. Removed elements have no live node in the
+ * frame — the shell shows them in its own sidebar, so they never cross
+ * this protocol. Empty arrays clear all diff outlines.
+ */
+export interface DiffOpsMsg extends Base {
+  type: 'diffOps';
+  changed: string[];
+  added: string[];
+}
+
+export type ToFrame = ModeMsg | HighlightMsg | ScrollToMsg | DiffOpsMsg;
 
 /** Type guard: whether an arbitrary message belongs to this protocol. */
 export function isArtMessage(data: unknown): data is Base {

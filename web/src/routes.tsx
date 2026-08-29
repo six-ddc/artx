@@ -21,6 +21,7 @@ const docRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): DocViewSearch => ({
     v: typeof search.v === 'string' ? search.v : undefined,
     t: typeof search.t === 'string' ? search.t : undefined,
+    cmp: typeof search.cmp === 'string' ? search.cmp : undefined,
   }),
   component: DocView,
 });

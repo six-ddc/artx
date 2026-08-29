@@ -113,8 +113,12 @@ export function findQuoteSpan(full: string, needle: string): [number, number] | 
   return [map[idx]!, map[idx + needleNorm.length - 1]! + 1];
 }
 
-/** Finds needle in the plain text of root's subtree, returning a Range that may span multiple text nodes. */
-function findTextRange(root: HTMLElement, needle: string): Range | null {
+/**
+ * Finds needle in the plain text of root's subtree, returning a Range that
+ * may span multiple text nodes. Exported for MdDiffCanvas, which uses the
+ * same source-text→DOM-range search to place word-level diff highlights.
+ */
+export function findTextRange(root: HTMLElement, needle: string): Range | null {
   if (!needle) return null;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: Text[] = [];

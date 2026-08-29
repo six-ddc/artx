@@ -168,6 +168,76 @@ export interface ErrorResponse {
   detail?: string;
 }
 
+// --- Diff ------------------------------------------------------------------
+
+export type DiffBlockOp = 'unchanged' | 'modified' | 'removed' | 'added';
+export type DiffElementOp = 'changed' | 'added' | 'removed';
+export type DiffLineOp = 'ctx' | 'del' | 'add';
+
+/**
+ * One top-level block in the md diff. `from`/`to` are [start, end) byte
+ * ranges into the old/new source — `to` is the join key against the
+ * rendered HTML's data-sourcepos. blocks arrive in new-document order with
+ * removed blocks already inserted before their old successor, so the
+ * frontend never sorts.
+ */
+export interface DiffBlock {
+  op: DiffBlockOp;
+  from?: [number, number];
+  to?: [number, number];
+  /** modified only: word-level source-text segments for CSS Highlight painting. */
+  added_texts?: string[];
+  removed_texts?: string[];
+  /** removed only: the block rendered against the OLD document, ready to re-insert. */
+  html?: string;
+}
+
+/** One element in the html diff, keyed by its stable data-aid. */
+export interface DiffElement {
+  op: DiffElementOp;
+  aid: string;
+  /** removed only: the element's outerHTML for the removed-elements sidebar. */
+  html?: string;
+}
+
+export interface DiffLine {
+  op: DiffLineOp;
+  text: string;
+}
+
+export interface DiffHunk {
+  from_start: number;
+  from_count: number;
+  to_start: number;
+  to_count: number;
+  lines: DiffLine[];
+}
+
+export interface DiffStats {
+  added: number;
+  removed: number;
+  modified: number;
+}
+
+/** GET /api/docs/{id}/diff?from=&to= — `to` empty means the working copy. */
+export interface DiffResponse {
+  doc: string;
+  type: DocType;
+  from: string;
+  to: string;
+  /** md documents: block-level ops. */
+  blocks?: DiffBlock[];
+  /** html documents: element-level ops keyed by data-aid. */
+  elements?: DiffElement[];
+  /** Always present ([] when nothing changed), unlike the type-specific ops above. */
+  hunks: DiffHunk[];
+  stats: DiffStats;
+  /** md: the frontmatter bytes differ (the block table only covers the body). */
+  frontmatter_changed?: boolean;
+  /** html: <head>/<style>/<script> changed — element highlights don't cover it. */
+  chrome_changed?: boolean;
+}
+
 // --- SSE -------------------------------------------------------------------
 
 export interface SSEComment {

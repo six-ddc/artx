@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, MessageSquarePlus, MousePointer2, Pencil, X } from 'lucide-react';
-import type { DocDetail, Thread } from '@/lib/types';
+import type { DiffResponse, DocDetail, Thread } from '@/lib/types';
 import type { HoverMsg, PickMsg } from '@/lib/protocol';
 import { usePostElement } from '@/lib/queries';
 import { useFrameBridge } from './frame-bridge';
@@ -8,7 +8,7 @@ import { HoverOutline } from './HoverOutline';
 import { ElementPopover } from './ElementPopover';
 import { ToolPill, type ToolPillItem } from './ToolPill';
 
-export type HtmlCanvasMode = 'browse' | 'review' | 'edit';
+export type HtmlCanvasMode = 'browse' | 'review' | 'edit' | 'diff';
 
 // An html artifact is an arbitrary interactive page, so a plain click is
 // genuinely ambiguous (trigger the page / comment / edit). The cursor tool
@@ -38,10 +38,18 @@ interface HtmlCanvasProps {
   threads: Thread[];
   readOnly: boolean;
   focusedThreadId?: string;
+  /**
+   * Version compare: when set, the canvas goes into diff mode — the working
+   * copy renders as usual, the reviewer outlines changed/added elements,
+   * and removed elements (which have no live node to outline) list in a
+   * static sidebar. No ghost placeholders back inside the page: re-inserting
+   * dead elements into an arbitrary live layout would break it.
+   */
+  diff?: DiffResponse;
 }
 
 /** The html artifact sits in a sandboxed iframe, talking postMessage with the injected reviewer.ts (§7.5). */
-export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: HtmlCanvasProps) {
+export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId, diff }: HtmlCanvasProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(480);
   const [tool, setTool] = useState<CanvasTool>('interact');
@@ -50,7 +58,11 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
   const [saveNotice, setSaveNotice] = useState<'saved' | 'error' | null>(null);
   const postElement = usePostElement(docId);
 
-  const mode: HtmlCanvasMode = readOnly ? 'browse' : TOOL_MODE[tool];
+  const mode: HtmlCanvasMode = diff ? 'diff' : readOnly ? 'browse' : TOOL_MODE[tool];
+  const elements = diff?.elements ?? [];
+  const diffChanged = elements.filter((e) => e.op === 'changed').map((e) => e.aid);
+  const diffAdded = elements.filter((e) => e.op === 'added').map((e) => e.aid);
+  const diffRemoved = elements.filter((e) => e.op === 'removed');
 
   useEffect(() => {
     if (!saveNotice) return;
@@ -76,6 +88,11 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
       case 'ready': {
         // Script just became ready: push the current mode/highlight/pending focused thread in one shot.
         postToFrame({ type: 'mode', mode });
+        if (diff) {
+          // Comparing: diff outlines replace comment highlights entirely.
+          postToFrame({ type: 'diffOps', changed: diffChanged, added: diffAdded });
+          break;
+        }
         postToFrame({ type: 'highlight', aids: aidsWithThreads });
         const focused = threads.find((t) => t.thread === focusedThreadId);
         if (focused?.anchor.aid) postToFrame({ type: 'scrollTo', aid: focused.anchor.aid });
@@ -125,9 +142,16 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
   }, [tool]);
 
   useEffect(() => {
+    if (diff) return; // diff outlines own the frame while comparing
     postToFrame({ type: 'highlight', aids: aidsWithThreads });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aidsWithThreads.join(',')]);
+  }, [aidsWithThreads.join(','), Boolean(diff)]);
+
+  useEffect(() => {
+    if (!diff) return;
+    postToFrame({ type: 'diffOps', changed: diffChanged, added: diffAdded });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(diff), diffChanged.join(','), diffAdded.join(',')]);
 
   useEffect(() => {
     if (!focusedThreadId) return;
@@ -143,29 +167,52 @@ export function HtmlCanvas({ doc, docId, threads, readOnly, focusedThreadId }: H
   }
 
   return (
-    <div className="relative">
-      <iframe
-        ref={iframeRef}
-        src={doc.raw_url}
-        sandbox="allow-scripts"
-        title={doc.title}
-        style={{ height, width: '100%', border: 0, display: 'block' }}
-      />
-      {hover?.rect && <HoverOutline rect={hover.rect} tag={hover.tag} />}
-      {pick && <ElementPopover docId={docId} pick={pick} onClose={closePick} />}
-      {saveNotice && (
-        <div
-          className="pointer-events-none absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border bg-popover px-2.5 py-1 text-xs font-medium text-popover-foreground shadow-md"
-        >
-          {saveNotice === 'saved' ? (
-            <Check className="size-3.5 text-status-resolved" />
-          ) : (
-            <X className="size-3.5 text-destructive" />
-          )}
-          {saveNotice === 'saved' ? 'Saved' : 'Save failed'}
-        </div>
+    <div className="flex items-start">
+      <div className="relative min-w-0 flex-1">
+        <iframe
+          ref={iframeRef}
+          src={doc.raw_url}
+          sandbox="allow-scripts"
+          title={doc.title}
+          style={{ height, width: '100%', border: 0, display: 'block' }}
+        />
+        {hover?.rect && <HoverOutline rect={hover.rect} tag={hover.tag} />}
+        {pick && <ElementPopover docId={docId} pick={pick} onClose={closePick} />}
+        {saveNotice && (
+          <div
+            className="pointer-events-none absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border bg-popover px-2.5 py-1 text-xs font-medium text-popover-foreground shadow-md"
+          >
+            {saveNotice === 'saved' ? (
+              <Check className="size-3.5 text-status-resolved" />
+            ) : (
+              <X className="size-3.5 text-destructive" />
+            )}
+            {saveNotice === 'saved' ? 'Saved' : 'Save failed'}
+          </div>
+        )}
+        {!readOnly && !diff && <ToolPill tools={TOOLS} active={tool} onSelect={setTool} />}
+      </div>
+      {diff && diffRemoved.length > 0 && (
+        <aside className="sticky top-[5.5rem] max-h-[calc(100dvh-5.5rem)] w-80 shrink-0 overflow-y-auto border-l px-4 py-4">
+          <h2 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <span className="size-2 rounded-full bg-diff-removed" />
+            Removed elements
+            <span className="tabular-nums">{diffRemoved.length}</span>
+          </h2>
+          {/* Static summaries only: the element's source, not a live render. */}
+          <ul className="mt-3 space-y-3">
+            {diffRemoved.map((el) => (
+              <li key={el.aid} className="rounded-md border p-2">
+                <div className="art-mono text-[11px] text-muted-foreground">{el.aid}</div>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[11px] leading-4 text-muted-foreground">
+                  {(el.html ?? '').slice(0, 600)}
+                  {(el.html ?? '').length > 600 ? '…' : ''}
+                </pre>
+              </li>
+            ))}
+          </ul>
+        </aside>
       )}
-      {!readOnly && <ToolPill tools={TOOLS} active={tool} onSelect={setTool} />}
     </div>
   );
 }
